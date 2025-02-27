@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useLocation } from 'react-router-dom';
 import SummaryApi from '../common';
 import { toast } from 'react-toastify';
@@ -8,6 +8,7 @@ import { MdRestaurantMenu } from 'react-icons/md';
 import { BsCalendarCheck } from 'react-icons/bs';
 import { FiShoppingCart, FiSettings } from 'react-icons/fi';
 import { FaStar, FaStarHalf } from 'react-icons/fa';
+import Context from '../context';
 
 const RecommendedEvents = () => {
   const location = useLocation();
@@ -1001,7 +1002,7 @@ const RecommendedEvents = () => {
         ) : (
           <div className="text-center text-gray-600 bg-white p-8 rounded-lg shadow">
             <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M12 12h.01M12 12h.01M12 12h.01M12 12h.01M12 12h.01M12 12h.01M12 12h.01"></path>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M12 12h.01M12 12h.01M12 12h.01M12 12h.01M12 12h.01M12 12h.01M12 12h.01M12 12h.01"></path>
             </svg>
             <p className="text-xl font-semibold">No packages found matching your criteria</p>
             <p className="text-gray-500 mt-2">Try adjusting your event details or budget range</p>
@@ -1024,6 +1025,8 @@ const RecommendedEvents = () => {
 }
 
 const CustomizePackageModal = ({ isOpen, onClose, packageData, ratings, eventDetails }) => {
+  const { fetchUserAddToCart } = useContext(Context);
+  
   const [selectedDishes, setSelectedDishes] = useState({});
   const [currentConfiguration, setCurrentConfiguration] = useState(null);
   const [selectedVariant, setSelectedVariant] = useState(null);
@@ -1232,6 +1235,111 @@ const CustomizePackageModal = ({ isOpen, onClose, packageData, ratings, eventDet
         </span>
       </div>
     );
+  };
+
+  const handleAddPackageToCart = async () => {
+    try {
+      for (const [category, products] of Object.entries(packageData.categories)) {
+        for (const product of products) {
+          try {
+            let response;
+            
+            if (category.toLowerCase() === 'catering') {
+              // Check if configuration exists
+              const configuration = configuredMenus[product._id];
+              if (!configuration) {
+                toast.error(`Please configure menu for ${product.productName}`);
+                setIsConfigModalOpen(true);
+                continue;
+              }
+
+              // Log configuration being sent
+              console.log('Sending catering configuration:', {
+                productId: product._id,
+                quantity: eventDetails.guests,
+                configuration
+              });
+
+              response = await fetch(SummaryApi.addToCartWithConfig.url, {
+                method: SummaryApi.addToCartWithConfig.method,
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                  productId: product._id,
+                  quantity: eventDetails.guests,
+                  configuration
+                })
+              });
+            } else if (category.toLowerCase() === 'rent') {
+              // Check if variant is selected
+              const selectedVariant = selectedVariants[product._id];
+              if (!selectedVariant) {
+                toast.error(`Please select variant for ${product.productName}`);
+                continue;
+              }
+
+              // Log variant being sent
+              console.log('Sending rental variant:', {
+                productId: product._id,
+                quantity: eventDetails.guests,
+                variantId: selectedVariant._id,
+                variantName: selectedVariant.itemName,
+                variantPrice: selectedVariant.price
+              });
+
+              response = await fetch(SummaryApi.addToCartWithVariant.url, {
+                method: SummaryApi.addToCartWithVariant.method,
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                  productId: product._id,
+                  quantity: eventDetails.guests,
+                  variantId: selectedVariant._id,
+                  variantName: selectedVariant.itemName,
+                  variantPrice: selectedVariant.price
+                })
+              });
+            } else if (category.toLowerCase() === 'bakers') {
+              response = await fetch(SummaryApi.addToCartProduct.url, {
+                method: SummaryApi.addToCartProduct.method,
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                  productId: product._id,
+                  quantity: eventDetails.guests
+                })
+              });
+            } else {
+              response = await fetch(SummaryApi.addToCartProduct.url, {
+                method: SummaryApi.addToCartProduct.method,
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                  productId: product._id,
+                  quantity: 1
+                })
+              });
+            }
+
+            const data = await response.json();
+            console.log('Backend Response:', data); // Log the response
+
+            if (data.success) {
+              toast.success(`Added ${product.productName} to cart`);
+              await fetchUserAddToCart();
+            } else {
+              toast.error(data.message || `Failed to add ${product.productName} to cart`);
+            }
+          } catch (error) {
+            console.error(`Error adding ${product.productName} to cart:`, error);
+            toast.error(`Failed to add ${product.productName} to cart: ${error.message}`);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error in add to cart process:', error);
+      toast.error('Failed to complete adding items to cart');
+    }
   };
 
   return (
@@ -1445,6 +1553,17 @@ const CustomizePackageModal = ({ isOpen, onClose, packageData, ratings, eventDet
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Add to Cart Button */}
+        <div className="mt-8 flex justify-center">
+          <button
+            onClick={handleAddPackageToCart}
+            className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-all duration-200 shadow-sm hover:shadow-md"
+          >
+            <FiShoppingCart className="w-5 h-5" />
+            Add All Items to Cart
+          </button>
         </div>
 
         {/* Catering Configuration Modal */}

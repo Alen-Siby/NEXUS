@@ -44,6 +44,7 @@ const Cart = () => {
   const [expandedMenus, setExpandedMenus] = useState({});
   const [selectedMenuItems, setSelectedMenuItems] = useState({});
   const [rentalDates, setRentalDates] = useState({});
+  const [expandedConfigs, setExpandedConfigs] = useState({});
 
   // Array of colors for different courses
   const courseColors = {
@@ -604,12 +605,12 @@ const Cart = () => {
     if (product.productId.category.toLowerCase() === 'catering') {
       return (
         <div className="mt-2">
-          <button
+          {/* <button
             onClick={() => toggleMenuDetails(product.productId._id)}
             className="text-blue-600 hover:text-blue-800 underline focus:outline-none font-medium"
           >
             {expandedMenus[product.productId._id] ? 'Hide Details' : 'Show Details'}
-          </button>
+          </button> */}
           
           {expandedMenus[product.productId._id] && (
             <div className="mt-3 pl-4 border-l-2 border-gray-200 bg-gray-50 p-4 rounded-md">
@@ -853,6 +854,43 @@ const Cart = () => {
     }));
   };
 
+  // Toggle configuration visibility
+  const toggleConfig = (itemId) => {
+    setExpandedConfigs(prev => ({
+      ...prev,
+      [itemId]: !prev[itemId]
+    }));
+  };
+
+  // Helper function to render catering configuration
+  const renderCateringConfig = (configuration) => {
+    if (!configuration) return null;
+
+    return (
+      <div className="mt-2 space-y-2">
+        {Object.entries(configuration).map(([courseType, dishes]) => {
+          const colorClass = courseColors[courseType] || 'bg-gray-100 text-gray-800';
+          
+          return (
+            <div key={courseType} className="pl-4">
+              <div className="font-medium text-gray-700 mb-1">{courseType}:</div>
+              <div className="flex flex-wrap gap-2">
+                {Array.isArray(dishes) && dishes.map((dish, index) => (
+                  <span
+                    key={index}
+                    className={`text-sm px-2 py-1 rounded-full ${colorClass}`}
+                  >
+                    {dish}
+                  </span>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Address Section with role-based redirect */}
@@ -1067,6 +1105,28 @@ const Cart = () => {
                     <div className="mt-2">
                       {renderCateringDetails(product)}
                     </div>
+
+                    {/* Add Show Details link for catering items */}
+                    {product.productId?.category?.toLowerCase() === 'catering' && product.configuration && (
+                      <div className="mt-2">
+                        <button
+                          onClick={() => toggleConfig(product._id)}
+                          className="text-blue-600 hover:text-blue-800 text-m font-medium underline"
+                        >
+                          {expandedConfigs[product._id] ? 'Hide Details' : 'Show Details'}
+                        </button>
+                        
+                        {/* Show configuration only when expanded */}
+                        {expandedConfigs[product._id] && (
+                          <div className="mt-3 border-t pt-3">
+                            <div className="text-sm font-medium text-gray-700 mb-2">
+                              Selected Menu Configuration:
+                            </div>
+                            {renderCateringConfig(product.configuration)}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
