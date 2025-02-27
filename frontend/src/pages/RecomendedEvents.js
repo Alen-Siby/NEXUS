@@ -1064,11 +1064,15 @@ const CustomizePackageModal = ({ isOpen, onClose, packageData, ratings, eventDet
       return;
     }
     
-    // Save configuration to state with product ID
-    setConfiguredMenus(prev => ({
-      ...prev,
+    const updatedConfigs = {
+      ...configuredMenus,
       [currentProduct._id]: selectedDishes
-    }));
+    };
+    
+    // Save to state and localStorage
+    setConfiguredMenus(updatedConfigs);
+    localStorage.setItem('configuredMenus', JSON.stringify(updatedConfigs));
+    
     setIsConfigModalOpen(false);
     toast.success('Menu configuration saved!');
   };
@@ -1080,10 +1084,14 @@ const CustomizePackageModal = ({ isOpen, onClose, packageData, ratings, eventDet
 
   // Handle variant selection and update images
   const handleVariantSelect = (productId, variant) => {
-    setSelectedVariants(prev => ({
-      ...prev,
+    const updatedVariants = {
+      ...selectedVariants,
       [productId]: variant
-    }));
+    };
+
+    // Save to state and localStorage
+    setSelectedVariants(updatedVariants);
+    localStorage.setItem('selectedVariants', JSON.stringify(updatedVariants));
 
     // Update images if variant has images
     if (variant.images && variant.images.length > 0) {
@@ -1091,7 +1099,6 @@ const CustomizePackageModal = ({ isOpen, onClose, packageData, ratings, eventDet
         ...prev,
         [productId]: variant.images
       }));
-      // Reset active image index for this product
       setActiveImageIndices(prev => ({
         ...prev,
         [productId]: 0
@@ -1170,11 +1177,33 @@ const CustomizePackageModal = ({ isOpen, onClose, packageData, ratings, eventDet
     }
   };
 
-  // Fetch ratings when modal opens
+  // Add useEffect to initialize selections from localStorage when modal opens
   useEffect(() => {
     if (isOpen) {
+      // Load saved configurations from localStorage
+      const savedConfigs = localStorage.getItem('configuredMenus');
+      const savedVariants = localStorage.getItem('selectedVariants');
+      
+      if (savedConfigs) {
+        setConfiguredMenus(JSON.parse(savedConfigs));
+      }
+      if (savedVariants) {
+        setSelectedVariants(JSON.parse(savedVariants));
+      }
+      
       fetchProductRatings();
     }
+  }, [isOpen]);
+
+  // Add cleanup function when modal closes
+  useEffect(() => {
+    return () => {
+      if (!isOpen) {
+        // Optionally clear localStorage when modal is closed
+        // localStorage.removeItem('configuredMenus');
+        // localStorage.removeItem('selectedVariants');
+      }
+    };
   }, [isOpen]);
 
   // Helper function to render rating stars
