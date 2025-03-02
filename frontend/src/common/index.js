@@ -243,6 +243,13 @@ const SummaryApi = {
         url: `${backendDomin}/api/suggest-packages`,
         method: 'post'
     },
+
+    // Guest Management endpoints
+    createGuestList: {
+        url: `${backendDomin}/api/create-guest-list`,
+        method: "post"
+    },
+   
 }
 
 export default SummaryApi

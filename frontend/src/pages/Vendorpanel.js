@@ -19,6 +19,7 @@ import { LuRectangleHorizontal } from "react-icons/lu";
 import { AiOutlineProduct } from "react-icons/ai";
 import { MdOutlineReviews } from "react-icons/md";
 // import ROLE from '../common/role';
+import { MdOutlineManageAccounts } from "react-icons/md";
 
 
 
@@ -67,7 +68,7 @@ const VendorPanel = () => {
               <button
                 onClick={toggleCollapse}
                 className={`absolute top-60 p-2 bg-gray-200 hover:bg-blue-500 transition duration-300 ease-in-out rounded-full flex items-center justify-center ${
-                  isCollapsed ? "left-3/4" : "left-52"
+                  isCollapsed ? "left-3/4" : "left-60"
                 }`}
               >
                 {isCollapsed ? (
@@ -177,6 +178,15 @@ const VendorPanel = () => {
                   />
                   {isCollapsed ? null : "Portfolio"}
                 </Link>
+                <Link
+                  to={"guest-management"}
+                  className="flex items-center p-2 hover:bg-blue-600 hover:text-white hover:rounded-r-full transition duration-300 ease-in-out transform hover:scale-105"
+                >
+                  <MdOutlineManageAccounts
+                    className={`${isCollapsed ? "text-2xl" : "mr-2"}`}
+                  />
+                  {isCollapsed ? null : "Guest Management"}
+                </Link>
               </nav>
             </aside>
           </div>
@@ -274,6 +284,14 @@ const VendorPanel = () => {
                   >
                     <MdOutlineReviews className="mr-2" />
                    View Ratings & Reviews
+                  </Link>
+                  <Link
+                    to={"guest-management"}
+                    className="flex items-center p-2 hover:bg-blue-600 hover:text-white transition duration-300 ease-in-out"
+                    onClick={toggleSidebar}
+                  >
+                    <MdOutlineManageAccounts className="mr-2" />
+                 Guest Management
                   </Link>
                 </nav>
               </div>

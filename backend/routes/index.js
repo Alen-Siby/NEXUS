@@ -58,6 +58,13 @@ const chatController = require('../controller/user/chatController')
 const suggestPackagesController = require('../controller/user/suggestPackagesController')
 
 
+const { 
+    createGuestList, 
+    getGuestList, 
+    getVendorGuestLists, 
+    updateGuestStatus 
+  } = require('../controller/user/guestcontroller');
+
 
 // Import the controller
 
@@ -175,6 +182,13 @@ router.post('/message', chatController.handleMessage)
 router.post('/suggest-packages', suggestPackagesController.suggestPackages)
 
 
+//guest management 
+
+
+
+
+// Define the route for creating a guest list
+router.post('/create-guest-list', authToken, createGuestList); // Adjust the path as necessary
 
 module.exports = router
 

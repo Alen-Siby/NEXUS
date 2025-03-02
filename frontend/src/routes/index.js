@@ -47,6 +47,7 @@ import VendorReport from '../pages/VendorReport'
 import SocialMedia from '../pages/SocialMedia'
 import Portfolio from '../pages/Portfolio'
 import VendorOrders from '../pages/VendorOrders'
+import GuestManagement from '../pages/GuestManagement'
 
 // import ContactMessage from '../../../backend/models/ContactMessage'
 
@@ -261,6 +262,10 @@ const router = createBrowserRouter([
                     {
                         path : 'vendor-order',
                         element : <VendorOrders/>
+                    },
+                    {
+                        path : 'guest-management',
+                        element : <GuestManagement/>
                     },
                 ]
 
