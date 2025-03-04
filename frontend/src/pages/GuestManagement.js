@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { FiUpload, FiZap, FiEye } from 'react-icons/fi';
+import { FiUpload, FiZap, FiEye, FiPlusCircle, FiSearch, FiUser, FiMail, FiPhone, FiCheckCircle, FiXCircle, FiCalendar, FiClipboard, FiTag, FiMapPin, FiMap, FiCompass, FiClock, FiKey, FiUserCheck, FiDownload } from 'react-icons/fi';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import { OpenStreetMapProvider } from 'leaflet-geosearch';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 import 'leaflet/dist/leaflet.css';
 import SummaryApi from '../common';
+import ExcelJS from 'exceljs';
 
 const GuestManagement = () => {
   const [formData, setFormData] = useState({
@@ -32,6 +33,14 @@ const GuestManagement = () => {
     headers: [],
     rows: []
   });
+  const [isFormVisible, setIsFormVisible] = useState(false);
+  const [searchId, setSearchId] = useState('');
+  const [uniqueIds, setUniqueIds] = useState([]);
+  const [filteredIds, setFilteredIds] = useState([]);
+  const [uniqueIdColors, setUniqueIdColors] = useState([]);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedGuestList, setSelectedGuestList] = useState(null);
+  const [guestLists, setGuestLists] = useState([]);
 
   // Event types
   const eventTypes = [
@@ -479,6 +488,58 @@ const GuestManagement = () => {
     }
   };
 
+  // Fetch all guest lists from the database on component mount
+  useEffect(() => {
+    const fetchGuestLists = async () => {
+      try {
+        const response = await fetch(SummaryApi.allGuestLists.url, {
+          method: SummaryApi.allGuestLists.method,
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        const data = await response.json();
+        console.log('Fetched Data:', data); // Log the fetched data
+
+        // Check if data is in the expected format
+        if (data && data.data) {
+          const ids = data.data.map(guestList => guestList.uniqueId); // Extract unique IDs
+          setUniqueIds(ids); // Set unique IDs state
+          setFilteredIds(ids); // Initially, filtered IDs are the same as unique IDs
+          setGuestLists(data.data); // Store all guest lists
+
+          // Generate a fixed color for each unique ID
+          const colors = [
+            'bg-blue-400',
+            'bg-green-400',
+            'bg-red-400',
+            'bg-yellow-400',
+            'bg-purple-400',
+            'bg-pink-400',
+            'bg-teal-400',
+            'bg-orange-400',
+            'bg-indigo-400',
+            'bg-rose-400',
+            'bg-lime-400',
+            'bg-emerald-400',
+            'bg-cyan-400',
+            'bg-sky-400',
+            'bg-fuchsia-400',
+          ];
+          const assignedColors = ids.map((_, index) => colors[index % colors.length]); // Assign colors in a loop
+          setUniqueIdColors(assignedColors); // Set colors for unique IDs
+        } else {
+          console.warn('No data found in the response');
+        }
+      } catch (error) {
+        console.error('Error fetching guest lists:', error);
+      }
+    };
+
+    fetchGuestLists();
+  }, [userEmail]); // Dependency on userEmail to refetch when it changes
+
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -548,6 +609,160 @@ const GuestManagement = () => {
     return data.display_name; // Return the address
   };
 
+  // Function to toggle form visibility
+  const toggleFormVisibility = () => {
+    setIsFormVisible(prev => !prev);
+  };
+
+  // Function to handle search
+  const handleSearch = (e) => {
+    const value = e.target.value;
+    setSearchId(value);
+
+    // Filter unique IDs based on the search input
+    const filtered = uniqueIds.filter(id => id.toLowerCase().includes(value.toLowerCase()));
+    setFilteredIds(filtered);
+  };
+
+  // Function to handle ID click and show modal
+  const handleIdClick = (id) => {
+    // Find the selected guest list details from the stored guest lists
+    const guestListDetails = guestLists.find(guestList => guestList.uniqueId === id);
+    setSelectedGuestList(guestListDetails); // Set the selected guest list details
+    setModalVisible(true); // Show the modal
+  };
+
+  // Function to close the modal
+  const closeModal = () => {
+    setModalVisible(false);
+    setSelectedGuestList(null); // Clear selected guest list
+  };
+
+  // Function to convert image URL to Base64
+  const getBase64Image = async (url) => {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Network response was not ok');
+      const blob = await response.blob();
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (error) {
+      console.error('Error fetching image:', error);
+      return null; // Return null if there's an error
+    }
+  };
+
+  // Function to download data as XLSX
+  const downloadExcel = async (guestList) => {
+    console.log('Guest List Data:', guestList); // Log the entire guestList object
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Guest List');
+
+    // Add merged event details at the top
+    const eventDetails = [
+      { Event: 'Event Name', Value: guestList.eventName },
+      { Event: 'Event Type', Value: guestList.eventType },
+      { Event: 'Event Date', Value: new Date(guestList.eventDate).toLocaleDateString() },
+      { Event: 'Welcome Note', Value: guestList.welcomeNote || 'N/A' },
+      { Event: 'Dress Code', Value: guestList.dressCode || 'N/A' },
+      { Event: 'Location', Value: guestList.location.locationName || 'N/A' },
+      { Event: 'Address', Value: guestList.location.address },
+      { Event: 'Vendor', Value: guestList.vendor },
+      { Event: 'Unique ID', Value: guestList.uniqueId },
+      { Event: 'Created At', Value: new Date(guestList.createdAt).toLocaleString() },
+      { Event: 'Updated At', Value: new Date(guestList.updatedAt).toLocaleString() },
+    ];
+
+    // Add event details to the sheet
+    eventDetails.forEach((detail) => {
+      sheet.addRow([detail.Event, detail.Value]);
+    });
+
+    // Merge cells for the title
+    sheet.getCell('A1').value = 'Event Details';
+    sheet.getCell('A1').font = { bold: true, size: 14 };
+    sheet.mergeCells('A1:B1');
+
+    // Add a blank row for spacing
+    sheet.addRow([]);
+
+    // Add guest details heading
+    sheet.addRow(['Guest Information']); // Add heading for guest information
+    sheet.getCell('A3').font = { bold: true, size: 12 }; // Make the heading bold
+    sheet.addRow([]); // Add a blank row for spacing
+
+    // Add guest details header
+    sheet.addRow(['Name', 'Email', 'Phone', 'Status', 'Address', 'QR Code']);
+
+    // Set column widths
+    sheet.columns = [
+      { width: 30 },
+      { width: 30 },
+      { width: 15 },
+      { width: 15 },
+      { width: 30 },
+      { width: 20 },
+    ];
+
+    // Check if guests array is empty
+    if (!guestList.guests || guestList.guests.length === 0) {
+      console.warn('No guests found in the guest list.');
+      return; // Exit if there are no guests
+    }
+
+    // Use map to add guest details
+    await Promise.all(guestList.guests.map(async (guest) => {
+      console.log('Processing Guest:', guest); // Log each guest being processed
+
+      // Explicitly add values to the row
+      const row = sheet.addRow([
+        guest.name || 'N/A', // Name
+        guest.email || 'N/A', // Email
+        guest.phone || 'N/A', // Phone
+        guest.status || 'N/A', // Status
+        guest.additionalInfo?.Address || 'N/A', // Address
+        null // Placeholder for QR Code (to be added as an image later)
+      ]);
+
+      console.log('Added Row:', row.values); // Log the values added to the row
+
+      // Add QR Code image as Base64
+      if (guest.qrCode) {
+        const base64Image = await getBase64Image(guest.qrCode);
+        if (base64Image) {
+          const imgId = workbook.addImage({
+            base64: base64Image,
+            extension: 'png',
+          });
+          sheet.addImage(imgId, {
+            tl: { col: 5, row: row.number - 1 }, // Positioning the image in the QR Code column
+            ext: { width: 50, height: 50 }, // Set the size of the QR code image
+          });
+
+          // Adjust the row height to accommodate the QR code
+          sheet.getRow(row.number).height = 60; // Adjust height as needed
+        } else {
+          console.warn(`Could not load QR code for ${guest.name}`);
+        }
+      }
+    }));
+
+    // Generate file and trigger download
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/octet-stream' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'GuestListDetails.xlsx';
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto">
@@ -561,188 +776,331 @@ const GuestManagement = () => {
           </p>
         </div>
 
-        {/* Main Container */}
-        <div className="bg-white shadow-2xl rounded-2xl overflow-hidden backdrop-blur-sm backdrop-filter">
-          {/* Container Header */}
-          <div className="px-8 py-5 bg-gradient-to-r from-blue-600 to-indigo-600">
-            <h2 className="text-xl font-semibold text-white">Event Details</h2>
-          </div>
-
-          {/* Form Container */}
-          <div className="px-8 py-8">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Event Name and Type in one row */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="group">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Event Name
-                  </label>
-                  <input
-                    type="text"
-                    name="eventName"
-                    value={formData.eventName}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ease-in-out"
-                    placeholder="Enter event name"
-                  />
-                </div>
-
-                <div className="group">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Event Type
-                  </label>
-                  <select
-                    name="eventType"
-                    value={formData.eventType}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ease-in-out"
-                  >
-                    <option value="">Select event type</option>
-                    {eventTypes.map((type) => (
-                      <option key={type} value={type}>
-                        {type}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Event Date and Dress Code in one row */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Event Date
-                  </label>
-                  <input
-                    type="date"
-                    name="eventDate"
-                    value={formData.eventDate}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ease-in-out"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Dress Code
-                  </label>
-                  <textarea
-                    name="dressCode"
-                    value={formData.dressCode}
-                    onChange={handleChange}
-                    rows="1"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ease-in-out resize-none"
-                    placeholder="Specify dress code requirements..."
-                  />
-                </div>
-              </div>
-
-              {/* Welcome Note */}
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Welcome Note
-                  </label>
-                  <button
-                    type="button"
-                    onClick={generateWelcomeNote}
-                    className="inline-flex items-center px-3 py-1 text-sm font-medium text-blue-600 bg-blue-100 rounded-lg hover:bg-blue-200 transition-colors duration-200"
-                  >
-                    <FiZap className="mr-1" />
-                    Generate Note
-                  </button>
-                </div>
-                <textarea
-                  name="welcomeNote"
-                  value={formData.welcomeNote}
-                  onChange={handleChange}
-                  rows="3"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ease-in-out resize-none"
-                  placeholder="Write a warm welcome message for your guests..."
-                />
-              </div>
-
-              {/* Location Map */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Event Location
-                </label>
-                <div className="h-[300px] rounded-xl overflow-hidden border relative mb-4">
-                  <MapContainer
-                    center={position}
-                    zoom={13}
-                    style={{ height: '100%', width: '100%' }}
-                  >
-                    <TileLayer
-                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    />
-                    <Marker 
-                      position={position}
-                      draggable={true}
-                      eventHandlers={{
-                        dragend: async (e) => {
-                          const marker = e.target;
-                          const position = marker.getLatLng();
-                          setPosition([position.lat, position.lng]);
-                          
-                          // Get the address from the new position
-                          const address = await getAddressFromCoordinates(position.lat, position.lng);
-                          
-                          setFormData(prev => ({
-                            ...prev,
-                            latitude: position.lat,
-                            longitude: position.lng,
-                            location: address // Update to show the address instead of lat/lng
-                          }));
-                        },
-                      }}
-                    />
-                    <MapComponent />
-                  </MapContainer>
-                </div>
-                <textarea
-                  name="location"
-                  value={formData.location}
-                  onChange={handleChange}
-                  rows="2"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ease-in-out resize-none"
-                  placeholder="Location details will be updated automatically when you select from map..."
-                />
-              </div>
-
-              {/* File Upload */}
-              <FileUploadSection />
-
-              {/* Submit Button */}
-              <div className="pt-6">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 px-6 rounded-xl hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 transition-all duration-200 ease-in-out transform hover:-translate-y-0.5 text-lg font-medium shadow-lg"
-                >
-                  {loading ? 'Creating...' : 'Create Guest List'}
-                </button>
-              </div>
-
-              {/* Display Unique ID */}
-              {uniqueId && (
-                <div className="mt-6 p-6 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl shadow-sm">
-                  <p className="text-green-800 font-medium text-lg">Unique ID: {uniqueId}</p>
-                  <p className="text-sm text-green-600 mt-2">
-                    Please save this ID for future reference
-                  </p>
-                </div>
-              )}
-            </form>
+        {/* Search Section */}
+        <div className="mb-4">
+          <div className="flex items-center justify-center space-x-2">
+            <input
+              type="text"
+              value={searchId}
+              onChange={handleSearch}
+              placeholder="Enter Unique ID to search..."
+              className="w-full max-w-xs px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ease-in-out"
+            />
           </div>
         </div>
 
+        {/* Filtered Unique IDs List in Colorful Containers */}
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold text-gray-800 mb-2">Filtered Unique IDs:</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {filteredIds.length > 0 ? (
+              filteredIds.map((id, index) => (
+                <div 
+                  key={index} 
+                  className={`p-4 rounded-lg shadow-md ${uniqueIdColors[index % uniqueIdColors.length]} h-24 flex items-center justify-center cursor-pointer`} 
+                  onClick={() => handleIdClick(id)}
+                >
+                  <p className="text-center text-gray-800 font-semibold">{id}</p>
+                </div>
+              ))
+            ) : (
+              <div className="col-span-1 sm:col-span-2 md:col-span-3 lg:col-span-4 text-center text-gray-700">
+                No matching IDs found.
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Toggle Button for Form */}
+        <div className="text-center mb-4">
+          <button
+            onClick={toggleFormVisibility}
+            className="flex items-center justify-center bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors duration-200"
+          >
+            <FiPlusCircle className="animate-bounce mr-2" />
+            Create a New Guest List
+          </button>
+        </div>
+
+        {/* Main Container */}
+        {isFormVisible && (
+          <div className="bg-white shadow-2xl rounded-2xl overflow-hidden backdrop-blur-sm backdrop-filter">
+            {/* Container Header */}
+            <div className="px-8 py-5 bg-gradient-to-r from-blue-600 to-indigo-600">
+              <h2 className="text-xl font-semibold text-white">Event Details</h2>
+            </div>
+
+            {/* Form Container */}
+            <div className="px-8 py-8">
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Event Name and Type in one row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="group">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Event Name
+                    </label>
+                    <input
+                      type="text"
+                      name="eventName"
+                      value={formData.eventName}
+                      onChange={handleChange}
+                      required
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ease-in-out"
+                      placeholder="Enter event name"
+                    />
+                  </div>
+
+                  <div className="group">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Event Type
+                    </label>
+                    <select
+                      name="eventType"
+                      value={formData.eventType}
+                      onChange={handleChange}
+                      required
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ease-in-out"
+                    >
+                      <option value="">Select event type</option>
+                      {eventTypes.map((type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Event Date and Dress Code in one row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Event Date
+                    </label>
+                    <input
+                      type="date"
+                      name="eventDate"
+                      value={formData.eventDate}
+                      onChange={handleChange}
+                      required
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ease-in-out"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Dress Code
+                    </label>
+                    <textarea
+                      name="dressCode"
+                      value={formData.dressCode}
+                      onChange={handleChange}
+                      rows="1"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ease-in-out resize-none"
+                      placeholder="Specify dress code requirements..."
+                    />
+                  </div>
+                </div>
+
+                {/* Welcome Note */}
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Welcome Note
+                    </label>
+                    <button
+                      type="button"
+                      onClick={generateWelcomeNote}
+                      className="inline-flex items-center px-3 py-1 text-sm font-medium text-blue-600 bg-blue-100 rounded-lg hover:bg-blue-200 transition-colors duration-200"
+                    >
+                      <FiZap className="mr-1" />
+                      Generate Note
+                    </button>
+                  </div>
+                  <textarea
+                    name="welcomeNote"
+                    value={formData.welcomeNote}
+                    onChange={handleChange}
+                    rows="3"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ease-in-out resize-none"
+                    placeholder="Write a warm welcome message for your guests..."
+                  />
+                </div>
+
+                {/* Location Map */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Event Location
+                  </label>
+                  <div className="h-[300px] rounded-xl overflow-hidden border relative mb-4">
+                    <MapContainer
+                      center={position}
+                      zoom={13}
+                      style={{ height: '100%', width: '100%' }}
+                    >
+                      <TileLayer
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                      />
+                      <Marker 
+                        position={position}
+                        draggable={true}
+                        eventHandlers={{
+                          dragend: async (e) => {
+                            const marker = e.target;
+                            const position = marker.getLatLng();
+                            setPosition([position.lat, position.lng]);
+                            
+                            // Get the address from the new position
+                            const address = await getAddressFromCoordinates(position.lat, position.lng);
+                            
+                            setFormData(prev => ({
+                              ...prev,
+                              latitude: position.lat,
+                              longitude: position.lng,
+                              location: address // Update to show the address instead of lat/lng
+                            }));
+                          },
+                        }}
+                      />
+                      <MapComponent />
+                    </MapContainer>
+                  </div>
+                  <textarea
+                    name="location"
+                    value={formData.location}
+                    onChange={handleChange}
+                    rows="2"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ease-in-out resize-none"
+                    placeholder="Location details will be updated automatically when you select from map..."
+                  />
+                </div>
+
+                {/* File Upload */}
+                <FileUploadSection />
+
+                {/* Submit Button */}
+                <div className="pt-6">
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 px-6 rounded-xl hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 transition-all duration-200 ease-in-out transform hover:-translate-y-0.5 text-lg font-medium shadow-lg"
+                  >
+                    {loading ? 'Creating...' : 'Create Guest List'}
+                  </button>
+                </div>
+
+                {/* Display Unique ID */}
+                {uniqueId && (
+                  <div className="mt-6 p-6 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl shadow-sm">
+                    <p className="text-green-800 font-medium text-lg">Unique ID: {uniqueId}</p>
+                    <p className="text-sm text-green-600 mt-2">
+                      Please save this ID for future reference
+                    </p>
+                  </div>
+                )}
+              </form>
+            </div>
+          </div>
+        )}
+
         {/* Preview Modal */}
         {showPreview && <PreviewModal onClose={() => setShowPreview(false)} />}
+
+        {/* Modal for Guest List Details */}
+        {modalVisible && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl shadow-2xl w-11/12 max-w-4xl max-h-[80vh] overflow-hidden transform transition-transform duration-300 scale-100 hover:scale-105">
+              <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gradient-to-r from-blue-600 to-indigo-600">
+                <h3 className="text-xl font-semibold text-white">Guest List Details</h3>
+                <button onClick={closeModal} className="text-white hover:text-gray-200 transition-colors">
+                  <FiXCircle className="w-6 h-6" />
+                </button>
+              </div>
+              <div className="p-6 overflow-auto max-h-[calc(80vh-120px)]">
+                <div className="flex">
+                  {/* Event Details Section (up to Dress Code) */}
+                  <div className="w-1/2 pr-4">
+                    <h4 className="text-lg font-bold">Event Details</h4>
+                    <div className="space-y-2">
+                      <p className="flex items-center"><FiUser className="mr-2 text-blue-600" /><strong>Event Name:</strong> {selectedGuestList.eventName}</p>
+                      <p className="flex items-center"><FiCheckCircle className="mr-2 text-blue-600" /><strong>Event Type:</strong> {selectedGuestList.eventType}</p>
+                      <p className="flex items-center"><FiCalendar className="mr-2 text-blue-600" /><strong>Event Date:</strong> {new Date(selectedGuestList.eventDate).toLocaleDateString()}</p>
+                      <p className="flex items-center"><FiClipboard className="mr-2 text-blue-600" /><strong>Welcome Note:</strong> {selectedGuestList.welcomeNote || 'N/A'}</p>
+                      <p className="flex items-center"><FiTag className="mr-2 text-blue-600" /><strong>Dress Code:</strong> {selectedGuestList.dressCode || 'N/A'}</p>
+                      <p className="flex items-center"><strong>Created At:</strong> {new Date(selectedGuestList.createdAt).toLocaleString()}</p>
+                      
+                    </div>
+                  </div>
+
+                  {/* Vertical Divider */}
+                  <div className="border-l border-gray-300 mx-4"></div>
+
+                  {/* Remaining Details Section */}
+                  <div className="w-1/2 pl-4">
+                    <h4 className="text-lg font-bold">Additional Details</h4>
+                    <div className="space-y-2">
+                      <p className="flex items-center"><FiMapPin className="mr-2 text-blue-600" /><strong>Location:</strong> {selectedGuestList.location.locationName || 'N/A'}</p>
+                      <p className="flex items-center"><strong>Address:</strong> {selectedGuestList.location.address}</p>
+                      <p className="flex items-center"><strong>Coordinates:</strong> {`Lat: ${selectedGuestList.location.coordinates.latitude}, Lon: ${selectedGuestList.location.coordinates.longitude}`}</p>
+                      <p className="flex items-center"><strong>Vendor:</strong> {selectedGuestList.vendor}</p>
+                      <p className="flex items-center"><strong>Unique ID:</strong> {selectedGuestList.uniqueId}</p>
+                      <p className="flex items-center"><strong>Updated At:</strong> {new Date(selectedGuestList.updatedAt).toLocaleString()}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Full-Width Guest Table */}
+                <div className="mt-4">
+                  <h4 className="text-lg font-bold">Guests</h4>
+                  {selectedGuestList.guests.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">QR Code</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {selectedGuestList.guests.map((guest, index) => (
+                            <tr key={index} className="hover:bg-gray-100 transition-colors duration-200">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{guest.name}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{guest.email || 'N/A'}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{guest.phone || 'N/A'}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{guest.status}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{guest.additionalInfo?.Address || 'N/A'}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                <img src={guest.qrCode} alt={`QR Code for ${guest.name}`} className="h-10 w-10 rounded" />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p>No guests found for this event.</p>
+                  )}
+                </div>
+
+                {/* Download Button */}
+                <div className="mt-4 text-right">
+                  <button
+                    onClick={() => downloadExcel(selectedGuestList)}
+                    className="flex items-center justify-center bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                  >
+                    <FiDownload className="mr-2" />
+                    Download Details
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

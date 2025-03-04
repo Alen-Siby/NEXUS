@@ -249,7 +249,10 @@ const SummaryApi = {
         url: `${backendDomin}/api/create-guest-list`,
         method: "post"
     },
-   
+    allGuestLists: {
+        url: `${backendDomin}/api/all-guest-lists`,
+        method: "get"
+    },
 }
 
 export default SummaryApi

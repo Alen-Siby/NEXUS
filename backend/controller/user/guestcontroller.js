@@ -430,9 +430,27 @@ const updateGuestStatus = async (req, res) => {
   }
 };
 
+// Function to get all guest lists with their details
+const getAllGuestLists = async (req, res) => {
+  try {
+    const guestLists = await GuestList.find(); // Fetch all guest lists with all details
+
+    res.status(200).json({
+      success: true,
+      data: guestLists // Return all guest list details
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
 module.exports = {
   createGuestList,
   getGuestList,
   getVendorGuestLists,
-  updateGuestStatus
+  updateGuestStatus,
+  getAllGuestLists // Export the new function
 };

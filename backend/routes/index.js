@@ -64,6 +64,7 @@ const {
     getVendorGuestLists, 
     updateGuestStatus 
   } = require('../controller/user/guestcontroller');
+  const guestController = require('../controller/user/guestcontroller');
 
 
 // Import the controller
@@ -184,7 +185,7 @@ router.post('/suggest-packages', suggestPackagesController.suggestPackages)
 
 //guest management 
 
-
+router.get('/all-guest-lists', guestController.getAllGuestLists);
 
 
 // Define the route for creating a guest list
