@@ -41,6 +41,7 @@ const GuestManagement = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedGuestList, setSelectedGuestList] = useState(null);
   const [guestLists, setGuestLists] = useState([]);
+  const [eventStatusMap, setEventStatusMap] = useState({});
 
   // Define an array of colors for the containers (15 colors)
   const colors = [
@@ -524,16 +525,39 @@ const GuestManagement = () => {
         // Check if data is in the expected format
         if (data && data.data) {
           const ids = data.data.map(guestList => guestList.uniqueId); // Extract unique IDs
-          setUniqueIds(ids); // Set unique IDs state
-          setFilteredIds(ids); // Initially, filtered IDs are the same as unique IDs
           setGuestLists(data.data); // Store all guest lists
 
-          // Create a mapping of IDs to colors
+          // Filter upcoming events and sort them by event date (earliest first)
+          const upcomingEvents = data.data
+            .filter(guestList => new Date(guestList.eventDate) >= new Date())
+            .sort((a, b) => new Date(a.eventDate) - new Date(b.eventDate)); // Sort by earliest date first
+
+          // Filter past events
+          const pastEvents = data.data.filter(guestList => new Date(guestList.eventDate) < new Date());
+
+          // Combine upcoming events first, then past events
+          const finalSortedGuestLists = [...upcomingEvents, ...pastEvents];
+          const sortedIds = finalSortedGuestLists.map(guestList => guestList.uniqueId); // Get sorted unique IDs
+
+          setUniqueIds(sortedIds); // Set unique IDs state
+          setFilteredIds(sortedIds); // Initially, filtered IDs are the same as sorted unique IDs
+
+          // Create a mapping of IDs to colors and event status
           const colorMapping = {};
-          ids.forEach((id, index) => {
-            colorMapping[id] = colors[index % colors.length]; // Assign colors based on index
+          const eventStatusMapping = {};
+          data.data.forEach((guestList, index) => {
+            colorMapping[guestList.uniqueId] = colors[index % colors.length]; // Assign colors based on index
+            const eventDate = new Date(guestList.eventDate);
+            const isEventOver = eventDate < new Date(); // Check if event is over
+            eventStatusMapping[guestList.uniqueId] = isEventOver; // Store the event status
+
+            // Log event details where the event is over
+            if (isEventOver) {
+              console.log(`Event Over: ID: ${guestList.uniqueId}, Event Date: ${eventDate.toISOString()}`);
+            }
           });
           setIdColorMap(colorMapping); // Set the color mapping
+          setEventStatusMap(eventStatusMapping); // Set the event status mapping
         } else {
           console.warn('No data found in the response');
         }
@@ -625,7 +649,14 @@ const GuestManagement = () => {
     setSearchId(value);
 
     // Filter unique IDs based on the search input
-    const filtered = uniqueIds.filter(id => id.toLowerCase().includes(value.toLowerCase()));
+    const filtered = uniqueIds.filter(id => {
+      // Find the corresponding guest list details
+      const guestListDetails = guestLists.find(guestList => guestList.uniqueId === id);
+      // Check if the ID matches or if the event name matches the search value
+      return id.toLowerCase().includes(value.toLowerCase()) || 
+             (guestListDetails && guestListDetails.eventName.toLowerCase().includes(value.toLowerCase()));
+    });
+    
     setFilteredIds(filtered);
   };
 
@@ -799,15 +830,39 @@ const GuestManagement = () => {
           <h2 className="text-lg font-semibold text-gray-800 mb-2">Filtered Unique IDs:</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {filteredIds.length > 0 ? (
-              filteredIds.map((id) => (
-                <div 
-                  key={id} 
-                  className={`p-4 rounded-lg shadow-md ${idColorMap[id]} h-24 flex items-center justify-center cursor-pointer`} 
-                  onClick={() => handleIdClick(id)}
-                >
-                  <p className="text-center text-gray-800 font-semibold">{id}</p>
-                </div>
-              ))
+              filteredIds
+                .filter(id => {
+                  // Find the corresponding guest list details
+                  const guestListDetails = guestLists.find(guestList => guestList.uniqueId === id);
+                  // Only show IDs where the vendor matches the current user's email
+                  return guestListDetails && guestListDetails.vendor === userEmail;
+                })
+                .map((id) => {
+                  // Find the corresponding guest list details
+                  const guestListDetails = guestLists.find(guestList => guestList.uniqueId === id);
+                  return (
+                    <div 
+                      key={id} 
+                      className={`p-4 rounded-lg shadow-md ${idColorMap[id]} h-24 flex flex-col items-center justify-center relative cursor-pointer`} 
+                      onClick={() => handleIdClick(id)}
+                    >
+                      {/* Slanted label for event status */}
+                      {eventStatusMap[id] && (
+                        <span className="absolute top-6 left-6 transform -translate-x-1/2 -translate-y-1/2 bg-red-500 text-white text-xs font-bold px-2 py-1 rotate-[-45deg] rounded-full">
+                          Event is Over
+                        </span>
+                      )}
+                      <p className="text-center text-gray-800 font-semibold">{id}</p>
+                      {/* Display event name and location below the ID */}
+                      {guestListDetails && (
+                        <div className="text-center text-gray-600 text-sm">
+                          <p>{guestListDetails.eventName}</p>
+                          <p>{guestListDetails.location.locationName}</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
             ) : (
               <div className="col-span-1 sm:col-span-2 md:col-span-3 lg:col-span-4 text-center text-gray-700">
                 No matching IDs found.
@@ -997,7 +1052,13 @@ const GuestManagement = () => {
 
                 {/* Display Unique ID */}
                 {uniqueId && (
-                  <div className="mt-6 p-6 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl shadow-sm">
+                  <div className="mt-6 p-6 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl shadow-sm relative">
+                    {/* New label for event status */}
+                    {new Date(formData.eventDate) < new Date() && (
+                      <span className="absolute top-2 left-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
+                        Event is Over
+                      </span>
+                    )}
                     <p className="text-green-800 font-medium text-lg">Unique ID: {uniqueId}</p>
                     <p className="text-sm text-green-600 mt-2">
                       Please save this ID for future reference
