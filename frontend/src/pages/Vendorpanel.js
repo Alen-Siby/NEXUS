@@ -12,7 +12,6 @@ import { TbReportAnalytics } from "react-icons/tb";
 import { ImProfile } from "react-icons/im";
 import { BsCart4 } from "react-icons/bs";
 
-
 import { CgProfile } from "react-icons/cg";
 import { RiAdvertisementLine } from "react-icons/ri";
 import { LuRectangleHorizontal } from "react-icons/lu";
@@ -20,8 +19,6 @@ import { AiOutlineProduct } from "react-icons/ai";
 import { MdOutlineReviews } from "react-icons/md";
 // import ROLE from '../common/role';
 import { MdOutlineManageAccounts } from "react-icons/md";
-
-
 
 const VendorPanel = () => {
     const [isOpen, setIsOpen] = useState(false);
@@ -78,7 +75,7 @@ const VendorPanel = () => {
                 )}
               </button>
     
-              <div className="h-32 flex justify-center items-center flex-col">
+              <div className="h-32 flex justify-center items-center flex-col mt-8">
                 <div className="text-5xl cursor-pointer relative flex justify-center">
                   {user?.profilePic ? (
                     <img
