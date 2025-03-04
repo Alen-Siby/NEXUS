@@ -37,10 +37,29 @@ const GuestManagement = () => {
   const [searchId, setSearchId] = useState('');
   const [uniqueIds, setUniqueIds] = useState([]);
   const [filteredIds, setFilteredIds] = useState([]);
-  const [uniqueIdColors, setUniqueIdColors] = useState([]);
+  const [idColorMap, setIdColorMap] = useState({});
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedGuestList, setSelectedGuestList] = useState(null);
   const [guestLists, setGuestLists] = useState([]);
+
+  // Define an array of colors for the containers (15 colors)
+  const colors = [
+    'bg-blue-400',
+    'bg-green-400',
+    'bg-red-400',
+    'bg-yellow-400',
+    'bg-purple-400',
+    'bg-pink-400',
+    'bg-teal-400',
+    'bg-orange-400',
+    'bg-indigo-400',
+    'bg-rose-400',
+    'bg-lime-400',
+    'bg-emerald-400',
+    'bg-cyan-400',
+    'bg-sky-400',
+    'bg-fuchsia-400',
+  ];
 
   // Event types
   const eventTypes = [
@@ -509,26 +528,12 @@ const GuestManagement = () => {
           setFilteredIds(ids); // Initially, filtered IDs are the same as unique IDs
           setGuestLists(data.data); // Store all guest lists
 
-          // Generate a fixed color for each unique ID
-          const colors = [
-            'bg-blue-400',
-            'bg-green-400',
-            'bg-red-400',
-            'bg-yellow-400',
-            'bg-purple-400',
-            'bg-pink-400',
-            'bg-teal-400',
-            'bg-orange-400',
-            'bg-indigo-400',
-            'bg-rose-400',
-            'bg-lime-400',
-            'bg-emerald-400',
-            'bg-cyan-400',
-            'bg-sky-400',
-            'bg-fuchsia-400',
-          ];
-          const assignedColors = ids.map((_, index) => colors[index % colors.length]); // Assign colors in a loop
-          setUniqueIdColors(assignedColors); // Set colors for unique IDs
+          // Create a mapping of IDs to colors
+          const colorMapping = {};
+          ids.forEach((id, index) => {
+            colorMapping[id] = colors[index % colors.length]; // Assign colors based on index
+          });
+          setIdColorMap(colorMapping); // Set the color mapping
         } else {
           console.warn('No data found in the response');
         }
@@ -794,10 +799,10 @@ const GuestManagement = () => {
           <h2 className="text-lg font-semibold text-gray-800 mb-2">Filtered Unique IDs:</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {filteredIds.length > 0 ? (
-              filteredIds.map((id, index) => (
+              filteredIds.map((id) => (
                 <div 
-                  key={index} 
-                  className={`p-4 rounded-lg shadow-md ${uniqueIdColors[index % uniqueIdColors.length]} h-24 flex items-center justify-center cursor-pointer`} 
+                  key={id} 
+                  className={`p-4 rounded-lg shadow-md ${idColorMap[id]} h-24 flex items-center justify-center cursor-pointer`} 
                   onClick={() => handleIdClick(id)}
                 >
                   <p className="text-center text-gray-800 font-semibold">{id}</p>
