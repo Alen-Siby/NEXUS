@@ -2,8 +2,7 @@ import React, { useContext, useState, useEffect } from "react";
 import Logo from "./Logo";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { IoSearch, IoNotifications } from "react-icons/io5";
-import { FaRegCircleUser } from "react-icons/fa6";
-import { FaShoppingCart } from "react-icons/fa";
+import { FaCog, FaUserCircle, FaShoppingCart } from "react-icons/fa";
 import { useDispatch, useSelector } from "react-redux";
 import SummaryApi from "../common";
 import { toast } from "react-toastify";
@@ -451,48 +450,54 @@ const Header = () => {
                       {user?.profilePic ? (
                         <img src={user?.profilePic} className='w-10 h-10 rounded-full border-2 border-gray-200 dark:border-gray-600' alt={user?.name} />
                       ) : (
-                        <FaRegCircleUser className="w-10 h-10 text-gray-600 dark:text-gray-300" />
+                        <FaUserCircle className="w-10 h-10 text-gray-600 dark:text-gray-300" />
                       )}
                     </div>
 
                     {menuDisplay && (
-                      <div className={`absolute ${isDarkMode ? 'bg-gray-800' : 'bg-white'} bottom-0 top-11 h-fit p-2 shadow-lg rounded-2xl`}>
+                      <div className={`absolute ${isDarkMode ? 'bg-gray-800' : 'bg-white'} bottom-0 top-11 h-fit p-2 shadow-lg rounded-2xl transition-transform transform scale-95 origin-top duration-200`}>
                         <nav>
+                          <div className="px-4 py-2 border-b border-gray-200">
+                          </div>
                           {user?.role === "Vendor" && (
                             <Link
                               to={"/vendor-panel/vendor-products"}
-                              className={`whitespace-nowrap ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-slate-100'} p-2 block`}
+                              className={`flex items-center gap-2 p-2 rounded-md transition-colors duration-200 ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
                               onClick={() => setMenuDisplay(false)}
                             >
-                              Vendor Panel
+                              <FaCog className="text-lg" />
+                              <span>Vendor Panel</span>
                             </Link>
                           )}
                           {user?.role === "Admin" && (
                             <Link
                               to={"/admin-panel/all-products"}
-                              className={`whitespace-nowrap ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-slate-100'} p-2 block`}
+                              className={`flex items-center gap-2 p-2 rounded-md transition-colors duration-200 ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
                               onClick={() => setMenuDisplay(false)}
                             >
-                              Admin Panel
+                              <FaUserCircle className="text-lg" />
+                              <span>Admin Panel</span>
                             </Link>
                           )}
                           {user?.role === "Customer" && (
-                            <nav>
+                            <>
                               <Link
                                 to={"/user-panel"}
-                                className={`whitespace-nowrap ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-slate-100'} p-2 block`}
+                                className={`flex items-center gap-2 p-2 rounded-md transition-colors duration-200 ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
                                 onClick={() => setMenuDisplay(false)}
                               >
-                                My Account
+                                <FaUserCircle className="text-lg" />
+                                <span>My Account</span>
                               </Link>
                               <Link
                                 to={"/user-panel/orders"}
-                                className={`whitespace-nowrap ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-slate-100'} p-2 block`}
+                                className={`flex items-center gap-2 p-2 rounded-md transition-colors duration-200 ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
                                 onClick={() => setMenuDisplay(false)}
                               >
-                                My Orders
+                                <FaShoppingCart className="text-lg" />
+                                <span>My Orders</span>
                               </Link>
-                            </nav>
+                            </>
                           )}
                         </nav>
                       </div>
@@ -512,8 +517,9 @@ const Header = () => {
                 {user?._id ? (
                   <button
                     onClick={handleLogout}
-                    className='px-6 py-2 rounded-full text-white bg-red-500 hover:bg-red-600 transition-colors duration-200 transform hover:scale-105'
+                    className='px-6 py-2 rounded-full text-white bg-red-500 hover:bg-red-600 transition-colors duration-200 transform hover:scale-105 flex items-center gap-2'
                   >
+                    <FaUserCircle className="text-lg" />
                     Logout
                   </button>
                 ) : (
@@ -569,7 +575,7 @@ const Header = () => {
                     {user?.profilePic ? (
                       <img src={user?.profilePic} className='w-8 h-8 rounded-full' alt={user?.name} />
                     ) : (
-                      <FaRegCircleUser className="w-6 h-6" />
+                      <FaUserCircle className="w-6 h-6" />
                     )}
                   </div>
                 </div>

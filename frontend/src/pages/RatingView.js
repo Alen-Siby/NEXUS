@@ -659,7 +659,15 @@ const RatingView = () => {
   const getReviewSentimentCounts = () => {
     if (!Array.isArray(ratings)) return { positive: 0, negative: 0 };
 
-    return ratings.reduce((counts, rating) => {
+    // Filter ratings to include only those for the current user's products
+    const vendorProductIds = allProduct
+      .filter(product => product?.user === userEmail)
+      .map(product => product._id);
+
+    // Filter ratings based on the vendor's product IDs
+    const vendorRatings = ratings.filter(rating => vendorProductIds.includes(rating.productId));
+
+    return vendorRatings.reduce((counts, rating) => {
       if (rating && typeof rating.rating === 'number') {
         if (rating.rating >= 3) {
           counts.positive += 1;

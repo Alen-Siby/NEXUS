@@ -202,7 +202,7 @@ const VerticalCardProduct = ({ category, heading }) => {
                                 duration-300 relative"
                         >
                             {/* Image Container */}
-                            <a href={`/product/${product._id}`} className="block">
+                            <Link to={`/product/${product._id}`} className="block">
                                 <div className="relative h-[200px] overflow-hidden">
                                     <img
                                         src={product.productImage?.[0] || 'https://via.placeholder.com/150'}
@@ -228,11 +228,11 @@ const VerticalCardProduct = ({ category, heading }) => {
                                         </span>
                                     )}
                                 </div>
-                            </a>
+                            </Link>
 
                             {/* Content Container */}
                             <div className="p-4">
-                                <a href={`/product/${product._id}`} className="block">
+                                <Link to={`/product/${product._id}`} className="block">
                                     <div className="space-y-2">
                                         {/* Product Name and Stars Row */}
                                         <div className="flex justify-between items-start gap-2">
@@ -273,7 +273,7 @@ const VerticalCardProduct = ({ category, heading }) => {
                                             </span>
                                         </div>
                                     </div>
-                                </a>
+                                </Link>
 
                                 {/* Add to Cart Button */}
                                 <div className="mt-4">
