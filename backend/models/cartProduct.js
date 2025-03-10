@@ -8,8 +8,8 @@ const addToCart = mongoose.Schema({
    quantity : Number,
    userId : String,
    configuration: {
-        type: Object,  // This will store the configuration object
-        default: null  // Default to null for non-catering items
+        type: Object,  // For catering configurations
+        default: null
    },
    rentalVariant: {
         type: {
@@ -18,12 +18,20 @@ const addToCart = mongoose.Schema({
             variantPrice: Number
         },
         default: null
+   },
+   bakeryVariant: {
+        type: {
+            variantId: String,
+            variantName: String,
+            variantPrice: Number,
+            configuration: Object // For storing bakery item quantities
+        },
+        default: null
    }
 },{
     timestamps : true
 })
 
-
-const addToCartModel = mongoose.model("addToCart",addToCart)
+const addToCartModel = mongoose.model("addToCart", addToCart)
 
 module.exports = addToCartModel

@@ -23,7 +23,7 @@ const { getUserByEmail } = require('../controller/user/fetchuser')
 const getCategoryProduct = require('../controller/product/getCategoryProductOne')
 const getCategoryWiseProduct = require('../controller/product/getCategoryWiseProduct')
 const getProductDetails = require('../controller/product/getProductDetails')
-const { addToCartController, addToCartWithConfigController, addToCartWithVariantController } = require('../controller/user/addToCartController')
+const { addToCartController, addToCartWithConfigController, addToCartWithVariantController, addToCartWithBakeryConfigController } = require('../controller/user/addToCartController')
 const countAddToCartProduct = require('../controller/user/countAddToCartProduct')
 const addToCartViewProduct = require('../controller/user/addToCartViewProduct')
 const updateAddToCartProduct = require('../controller/user/updateAddToCartProduct')
@@ -190,6 +190,8 @@ router.get('/all-guest-lists', guestController.getAllGuestLists);
 
 // Define the route for creating a guest list
 router.post('/create-guest-list', authToken, createGuestList); // Adjust the path as necessary
+
+router.post('/addtocartwithbakeryconfig', authToken, addToCartWithBakeryConfigController);
 
 module.exports = router
 

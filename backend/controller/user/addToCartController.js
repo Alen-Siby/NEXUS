@@ -110,19 +110,19 @@ const addToCartWithConfigController = async (req, res) => {
 
 const addToCartWithVariantController = async (req, res) => {
   try {
-    const { productId, quantity, variantId, variantName, variantPrice } = req.body;
+    const { productId, quantity, rentalVariant } = req.body; // Destructure rentalVariant from the request body
     const currentUser = req.userId;
 
     // Ensure quantity is a number
     const productQuantity = parseInt(quantity, 10);
     console.log('Product Quantity:', productQuantity);
-    console.log('Variant Details:', { variantId, variantName, variantPrice });
+    console.log('Rental Variant Details:', rentalVariant);
 
     // Check if the product with the same variant is already in the cart
     const isProductInCart = await addToCartModel.findOne({ 
       productId, 
       userId: currentUser,
-      'rentalVariant.variantId': variantId // Check for specific variant
+      'rentalVariant.variantId': rentalVariant.variantId // Check for specific variant
     });
 
     if (isProductInCart) {
@@ -144,9 +144,9 @@ const addToCartWithVariantController = async (req, res) => {
       quantity: productQuantity,
       userId: currentUser,
       rentalVariant: {
-        variantId,
-        variantName,
-        variantPrice
+        variantId: rentalVariant.variantId,
+        variantName: rentalVariant.variantName,
+        variantPrice: rentalVariant.variantPrice
       }
     };
 
@@ -172,11 +172,79 @@ const addToCartWithVariantController = async (req, res) => {
   }
 };
 
+const addToCartWithBakeryConfigController = async (req, res) => {
+  try {
+    const { productId, selectedVariant, configuration } = req.body;
+    const currentUser = req.userId;
+
+    console.log('Adding bakery item to cart:', {
+      productId,
+      selectedVariant,
+      configuration
+    });
+
+    // Check if the product with same variant and configuration exists in cart
+    const isProductInCart = await addToCartModel.findOne({ 
+      productId, 
+      userId: currentUser,
+      'bakeryVariant.variantId': selectedVariant._id,
+      'bakeryVariant.configuration': configuration
+    });
+
+    if (isProductInCart) {
+      // For bakery items, we don't increment quantity but update the configuration
+      isProductInCart.bakeryVariant.configuration = configuration;
+      const updatedCartProduct = await isProductInCart.save();
+
+      return res.json({
+        data: updatedCartProduct,
+        message: "Bakery configuration updated in cart",
+        success: true,
+        error: false,
+      });
+    }
+
+    // If product not in cart, create new entry
+    const payload = {
+      productId: productId,
+      quantity: 1, // Bakery items don't use main quantity
+      userId: currentUser,
+      bakeryVariant: {
+        variantId: selectedVariant._id,
+        variantName: selectedVariant.itemName,
+        variantPrice: selectedVariant.price,
+        configuration: configuration
+      }
+    };
+
+    console.log('Creating new cart entry:', payload);
+
+    const newAddToCart = new addToCartModel(payload);
+    const saveProduct = await newAddToCart.save();
+
+    return res.json({
+      data: saveProduct,
+      message: "Bakery items added to cart",
+      success: true,
+      error: false,
+    });
+
+  } catch (err) {
+    console.error('Add Bakery to Cart Error:', err);
+    return res.json({
+      message: err.message || err,
+      error: true,
+      success: false,
+    });
+  }
+};
+
 // Export all controllers
 module.exports = { 
   addToCartController, 
   addToCartWithConfigController,
-  addToCartWithVariantController 
+  addToCartWithVariantController,
+  addToCartWithBakeryConfigController
 };
 
 

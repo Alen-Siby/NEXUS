@@ -32,9 +32,23 @@ const rentalDetailsSchema = new mongoose.Schema({
     variantImage: String
 });
 
+const bakeryVariantSchema = new mongoose.Schema({
+    variantId: String,
+    itemName: String,
+    quantity: Number,
+    price: Number,
+    image: String
+});
+
+const bakeryDetailsSchema = new mongoose.Schema({
+    configuration: [bakeryVariantSchema],
+    totalPrice: Number
+});
+
 const additionalDetailsSchema = new mongoose.Schema({
     catering: cateringDetailsSchema,
-    rental: rentalDetailsSchema
+    rental: rentalDetailsSchema,
+    bakery: bakeryDetailsSchema
 });
 
 const productSchema = new mongoose.Schema({

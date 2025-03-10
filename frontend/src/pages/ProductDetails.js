@@ -44,6 +44,15 @@ const ProductDetails = () => {
   });
   const [allUsers, setAllUsers] = useState([]);
 
+  // Add new state for bakery configuration
+  const [bakeryConfig, setBakeryConfig] = useState({});
+  const [isBakeryConfigModalOpen, setIsBakeryConfigModalOpen] = useState(false);
+  const [currentBakeryConfiguration, setCurrentBakeryConfiguration] = useState(null);
+  const [selectedBakeryVariant, setSelectedBakeryVariant] = useState(null);
+
+  // Add state for selected rental variant
+  const [selectedRentalVariant, setSelectedRentalVariant] = useState(null);
+
   const { fetchUserAddToCart } = useContext(Context);
   const navigate = useNavigate();
 
@@ -152,10 +161,29 @@ const ProductDetails = () => {
     }
   }, [data?.catering?.courses]);
 
-  // Set initial variant when data loads
+  // Update useEffect to handle initial variant selection
   useEffect(() => {
-    if (data?.category === "rent" && data?.rentalVariants?.length > 0) {
-      setSelectedVariant(data.rentalVariants[0]);
+    if (data?.category?.toLowerCase() === "rent" && data?.rentalVariants?.length > 0) {
+      const initialVariant = data.rentalVariants[0];
+      setSelectedRentalVariant(initialVariant);
+      // Set initial variant images if available
+      if (initialVariant.images && initialVariant.images.length > 0) {
+        setActiveImages(initialVariant.images);
+        setActiveImageIndex(0);
+      }
+      // Set initial variant price
+      setData(prevData => ({
+        ...prevData,
+        price: initialVariant.price
+      }));
+    }
+  }, [data?.category, data?.rentalVariants]);
+
+  // Set initial bakery variant when data loads
+  useEffect(() => {
+    if (data?.category?.toLowerCase() === "bakers" && data?.bakeryVariants?.length > 0) {
+      setSelectedBakeryVariant(data.bakeryVariants[0]);
+      setActiveImages(data.bakeryVariants[0].images || []);
     }
   }, [data]);
 
@@ -259,42 +287,132 @@ const ProductDetails = () => {
     }
   };
 
-  const handleAddToCart = async (e, id) => {
-    e.preventDefault();
+  // Handle bakery item quantity change
+  const handleBakeryQuantityChange = (itemId, quantity) => {
+    setBakeryConfig(prev => ({
+      ...prev,
+      [itemId]: Math.max(0, parseInt(quantity) || 0)
+    }));
+  };
+
+  // Save bakery configuration
+  const handleBakeryConfigurationSave = () => {
+    const hasItems = Object.values(bakeryConfig).some(quantity => quantity > 0);
     
-    if (data?.category === "rent") {
-      await addToCartWithVariant(e, id);
-    } else if (data?.category === "catering") {
-      if (!currentConfiguration) {
-        toast.error('Please configure your platter before adding to cart');
-        setIsConfigModalOpen(true);
-        return;
+    if (!hasItems) {
+      toast.error('Please select at least one bakery item');
+      return;
+    }
+    
+    // Save configuration to state
+    setCurrentBakeryConfiguration(bakeryConfig);
+    console.log('Bakery Configuration Saved:', bakeryConfig);
+    toast.success('Bakery configuration saved!');
+    setIsBakeryConfigModalOpen(false);
+  };
+
+  // Add to cart with bakery configuration
+  const addToCartWithBakeryConfig = async (productId, quantity, configuration) => {
+    try {
+      console.log('Sending to backend:', {
+        productId,
+        quantity,
+        configuration
+      });
+
+      const response = await fetch(SummaryApi.addToCartWithConfig.url, {
+        method: SummaryApi.addToCartWithConfig.method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          productId,
+          quantity,
+          configuration
+        })
+      });
+
+      const data = await response.json();
+      console.log('Backend Response:', data);
+
+      if (data.success) {
+        toast.success(data.message);
+        fetchUserAddToCart();
+      } else {
+        toast.error(data.message);
       }
-      await addToCartWithConfig(id, quantity, currentConfiguration);
-    } else {
-      // Use regular addToCart for other categories
-      await addToCart(e, id, quantity);
-      fetchUserAddToCart();
+    } catch (error) {
+      console.error('Add to Cart Error:', error);
+      toast.error('Failed to add item to cart');
     }
   };
 
-  const handleBuyProduct = async (e, id) => {
-    e.preventDefault();
-    
-    if (data?.category === "rent") {
-      await addToCartWithVariant(e, id);
-    } else if (data?.category === "catering") {
-      if (!currentConfiguration) {
-        toast.error('Please configure your platter before proceeding');
-        setIsConfigModalOpen(true);
-        return;
-      }
-      await addToCartWithConfig(id, quantity, currentConfiguration);
+  // Modified handleRentalVariantSelect function
+  const handleRentalVariantSelect = (variant) => {
+    setSelectedRentalVariant(variant);
+    // Update active images if variant has images
+    if (variant.images && variant.images.length > 0) {
+      setActiveImages(variant.images);
+      setActiveImageIndex(0);
     } else {
-      await addToCart(e, id, quantity);
-      fetchUserAddToCart();
+      // Fallback to product's default images if variant has no images
+      setActiveImages(data.productImage || []);
+      setActiveImageIndex(0);
     }
-    navigate("/cart");
+    // Update the main price in the data state
+    setData(prevData => ({
+      ...prevData,
+      price: variant.price
+    }));
+  };
+
+  // Modified handleAddToCart function
+  const handleAddToCart = async () => {
+    try {
+      if (data.category.toLowerCase() === 'rent') {
+        if (!selectedRentalVariant) {
+          toast.error('Please select a rental variant');
+          return;
+        }
+
+        const response = await fetch(SummaryApi.addToCartWithVariant.url, {
+          method: SummaryApi.addToCartWithVariant.method,
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            productId: params.id,
+            quantity: quantity,
+            rentalVariant: {
+              variantId: selectedRentalVariant._id,
+              variantName: selectedRentalVariant.itemName,
+              variantPrice: selectedRentalVariant.price,
+              duration: selectedRentalVariant.duration || 1,
+              images: selectedRentalVariant.images || []
+            }
+          })
+        });
+
+        const responseData = await response.json();
+        if (responseData.success) {
+          toast.success('Product added to cart successfully');
+          fetchUserAddToCart();
+        } else {
+          toast.error(responseData.message || 'Failed to add product to cart');
+        }
+      } else {
+        // Regular products use the existing addToCart helper
+        const success = await addToCart(params.id, quantity, fetchUserAddToCart);
+        if (success) {
+          toast.success('Product added to cart successfully');
+        }
+      }
+    } catch (error) {
+      console.error('Add to Cart Error:', error);
+      toast.error('Failed to add item to cart. Please try again.');
+    }
   };
 
   // Optional: Log whenever configuration changes
@@ -360,6 +478,13 @@ const ProductDetails = () => {
     setSelectedVariant(variant);
     setActiveImages(variant.images || []);
     setActiveImageIndex(0); // Reset to first image when variant changes
+  };
+
+  // Handle bakery variant selection
+  const handleBakeryVariantSelect = (variant) => {
+    setSelectedBakeryVariant(variant);
+    setActiveImages(variant.images || []);
+    setActiveImageIndex(0);
   };
 
   const renderStars = (rating) => (
@@ -554,6 +679,61 @@ const ProductDetails = () => {
     }
   };
 
+  // Get the current price based on selected variant or default price
+  const getCurrentPrice = () => {
+    if (data?.category?.toLowerCase() === "bakers" && selectedBakeryVariant) {
+      return selectedBakeryVariant.price;
+    }
+    return data.price;
+  };
+
+  // Modified renderRentalVariants function
+  const renderRentalVariants = () => {
+    if (data.category?.toLowerCase() === "rent" && data.rentalVariants?.length > 0) {
+      return (
+        <div className="mt-6">
+          <h3 className="text-lg font-semibold mb-3">Available Variants</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {data.rentalVariants.map((variant) => (
+              <div
+                key={variant._id}
+                onClick={() => handleRentalVariantSelect(variant)}
+                className={`p-4 border rounded-lg cursor-pointer transition-all duration-300
+                  ${selectedRentalVariant?._id === variant._id 
+                    ? 'border-blue-500 bg-blue-50 shadow-md transform scale-[1.02]' 
+                    : 'border-gray-200 hover:border-blue-300 hover:shadow-sm'}`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <h4 className="font-medium text-gray-800">{variant.itemName}</h4>
+                    <p className="text-sm text-gray-600">Duration: {variant.duration} days</p>
+                    <p className="text-lg font-semibold text-green-600 mt-1">
+                      {displayINRCurrency(variant.price)}
+                      <span className="text-sm text-gray-500 ml-1">/day</span>
+                    </p>
+                    {variant.description && (
+                      <p className="text-sm text-gray-600 mt-1">{variant.description}</p>
+                    )}
+                  </div>
+                  {variant.images?.[0] && (
+                    <div className="ml-4">
+                      <img 
+                        src={variant.images[0]} 
+                        alt={variant.itemName}
+                        className="w-20 h-20 object-cover rounded-md shadow-sm"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <div className='min-h-screen bg-gradient-to-b from-gray-50 to-white py-8'>
       <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
@@ -713,62 +893,148 @@ const ProductDetails = () => {
               <p className='capitalize text-gray-500 mb-4'>{data?.category}</p>
 
               {/* Rental Variants Section */}
-              {data?.category === "rent" && data?.rentalVariants && (
-                <div className="mb-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-3">Available Options:</h3>
-                  <div className="flex flex-wrap gap-3">
-                    {data.rentalVariants.map((variant, index) => (
-                      <button
-                        key={index}
-                        onClick={() => handleVariantSelect(variant)}
-                        className={`
-                          px-4 py-2 rounded-lg border-2 transition-all duration-200
-                          ${selectedVariant?._id === variant._id 
-                            ? 'border-red-600 bg-red-50 text-red-600' 
-                            : 'border-gray-300 hover:border-red-600 hover:bg-red-50'
-                          }
-                        `}
-                      >
-                        <div className="text-left">
-                          <p className="font-medium">{variant.itemName}</p>
-                          <p className="text-sm text-gray-600">{displayINRCurrency(variant.price)}</p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {renderRentalVariants()}
 
-              {/* Price Display */}
-              <div className='mb-6'>
-                {data?.category === "rent" ? (
-                  selectedVariant && (
-                    <p className='text-3xl font-bold text-red-600'>{displayINRCurrency(selectedVariant.price)}</p>
-                  )
-                ) : (
-                  <p className='text-3xl font-bold text-red-600'>{displayINRCurrency(data.price)}</p>
+              {/* Price Section with Available Items */}
+              <div className="space-y-6">
+                {/* Main Price */}
+                <div className="flex items-baseline gap-4">
+                  <h2 className="text-3xl font-bold text-gray-900">
+                    ₹{getCurrentPrice()}
+                  </h2>
+                  {data?.category?.toLowerCase() === "bakers" && (
+                    <span className="text-sm text-gray-500">
+                      Price varies by selection
+                    </span>
+                  )}
+                </div>
+
+                {/* Available Items Section */}
+                {data?.category?.toLowerCase() === "bakers" && data?.bakeryVariants && (
+                  <div className="border-t border-b py-6">
+                    <h3 className="text-lg font-semibold mb-4">Available Items</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {data.bakeryVariants.map((variant, index) => (
+                        <div
+                          key={index}
+                          onClick={() => handleBakeryVariantSelect(variant)}
+                          className={`cursor-pointer p-4 rounded-lg border transition-all duration-200 
+                            ${selectedBakeryVariant?._id === variant._id 
+                              ? 'border-blue-500 bg-blue-50' 
+                              : 'border-gray-200 hover:border-blue-300'}`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <img
+                              src={variant.images[0]}
+                              alt={variant.itemName}
+                              className="w-20 h-20 object-cover rounded"
+                            />
+                            <div>
+                              <h4 className="font-medium text-gray-900">{variant.itemName}</h4>
+                              <p className="text-sm text-gray-600">Serves: {variant.servingCapacity}</p>
+                              <p className="text-sm font-semibold text-green-600 mt-1">
+                                ₹{variant.price}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Configuration Buttons */}
+                    <div className="flex flex-wrap gap-4 mt-6">
+                      <button
+                        onClick={() => setIsBakeryConfigModalOpen(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg 
+                          hover:bg-blue-700 transition-colors"
+                      >
+                        <FiSettings className="w-5 h-5" />
+                        Configure Order
+                      </button>
+
+                      {currentBakeryConfiguration && (
+                        <button
+                          onClick={() => setIsBakeryConfigModalOpen(true)}
+                          className="flex items-center gap-2 px-4 py-2 border border-green-500 text-green-600 
+                            rounded-lg hover:bg-green-50 transition-colors"
+                        >
+                          <FaCheckCircle className="w-5 h-5" />
+                          Edit Configuration
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Configuration Status */}
+                    {currentBakeryConfiguration && (
+                      <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="flex items-center gap-2 text-green-600">
+                          <FaCheckCircle className="w-5 h-5" />
+                          <span className="font-medium">Configuration Saved</span>
+                        </div>
+                        <div className="mt-2 space-y-1">
+                          {Object.entries(currentBakeryConfiguration).map(([itemId, quantity]) => {
+                            const item = data.bakeryVariants.find(v => v._id === itemId);
+                            if (item && quantity > 0) {
+                              return (
+                                <div key={itemId} className="text-sm text-gray-600 flex justify-between">
+                                  <span>{item.itemName}</span>
+                                  <span>Quantity: {quantity}</span>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 
-              {/* Quantity Input */}
-              {["catering", "rent", "bakers"].includes(data?.category) && (
-                <div className='mb-6'>
-                  <div className='flex flex-col gap-2'>
-                    <label htmlFor='quantity' className='font-medium text-slate-600'>Quantity</label>
-                    <input
-                      type='number'
-                      id='quantity'
-                      value={quantity}
-                      min="1"
-                      max={data?.category === "rent" ? selectedVariant?.stock : undefined}
-                      onChange={(e) => setQuantity(e.target.value)}
-                      className='border border-slate-400 p-2 rounded w-24'
-                    />
-                    {data?.category === "rent" && selectedVariant && (
-                      <p className="text-sm text-gray-600">
-                        Available Stock: {selectedVariant.stock}
-                      </p>
-                    )}
+              {/* Quantity Input - Hide for bakers category */}
+              {data?.category?.toLowerCase() !== "bakers" && (
+                <div className="mt-8 mb-6">
+                  <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 mb-2">
+                    Quantity
+                  </label>
+                  <div className="flex items-center space-x-4">
+                    <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden shadow-sm">
+                      <button
+                        onClick={() => quantity > 1 && setQuantity(quantity - 1)}
+                        className="px-4 py-2 bg-gray-50 hover:bg-gray-100 border-r border-gray-300 
+                          transition-colors duration-200 focus:outline-none focus:ring-2 
+                          focus:ring-blue-500 focus:ring-opacity-50"
+                      >
+                        <span className="text-gray-600 text-lg font-medium">−</span>
+                      </button>
+                      <input
+                        type="number"
+                        id="quantity"
+                        min="1"
+                        value={quantity}
+                        onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="w-16 px-3 py-2 text-center border-none focus:outline-none 
+                          focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 text-gray-700"
+                      />
+                      <button
+                        onClick={() => setQuantity(quantity + 1)}
+                        className="px-4 py-2 bg-gray-50 hover:bg-gray-100 border-l border-gray-300 
+                          transition-colors duration-200 focus:outline-none focus:ring-2 
+                          focus:ring-blue-500 focus:ring-opacity-50"
+                      >
+                        <span className="text-gray-600 text-lg font-medium">+</span>
+                      </button>
+                    </div>
+                    
+                    {/* Total Price Display */}
+                    <div className="text-gray-600">
+                      Total: <span className="font-semibold text-gray-900">
+                        {displayINRCurrency(data.price * quantity)}
+                      </span>
+                      {data.category?.toLowerCase() === "rent" && (
+                        <span className="text-sm text-gray-500 ml-1">/day</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -790,8 +1056,8 @@ const ProductDetails = () => {
                 
                 <div className='grid grid-cols-2 gap-4'>
                   <button
-                    onClick={(e) => handleBuyProduct(e, data?._id)}
-                    disabled={data?.category === "rent" && !selectedVariant}
+                    onClick={(e) => handleAddToCart(e)}
+                    disabled={data?.category === "rent" && !selectedRentalVariant}
                     className='w-full bg-blue-600 text-white px-6 py-3.5 rounded-xl 
                       font-medium hover:bg-blue-700 transition-all duration-200 
                       flex items-center justify-center gap-3 shadow-sm hover:shadow-md
@@ -802,8 +1068,8 @@ const ProductDetails = () => {
                   </button>
 
                   <button
-                    onClick={(e) => handleAddToCart(e, data?._id)}
-                    disabled={data?.category === "rent" && !selectedVariant}
+                    onClick={(e) => handleAddToCart(e)}
+                    disabled={data?.category === "rent" && !selectedRentalVariant}
                     className='w-full bg-green-600 text-white px-6 py-3.5 rounded-xl 
                       font-medium hover:bg-green-700 transition-all duration-200 
                       flex items-center justify-center gap-3 shadow-sm hover:shadow-md
@@ -988,6 +1254,52 @@ const ProductDetails = () => {
                     Confirm Selection
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Add Bakery Configuration Modal */}
+        {isBakeryConfigModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+              <h3 className="text-xl font-semibold mb-4">Select Bakery Items</h3>
+              
+              <div className="space-y-4">
+                {data?.bakeryVariants?.map((item) => (
+                  <div key={item._id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div>
+                      <h4 className="font-medium">{item.itemName}</h4>
+                      <p className="text-sm text-gray-600">Serves: {item.servingCapacity}</p>
+                      <p className="text-sm font-medium text-green-600">₹{item.price}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-sm">Quantity:</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={bakeryConfig[item._id] || 0}
+                        onChange={(e) => handleBakeryQuantityChange(item._id, e.target.value)}
+                        className="w-20 p-2 border rounded"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex justify-end gap-4 mt-6">
+                <button
+                  onClick={() => setIsBakeryConfigModalOpen(false)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBakeryConfigurationSave}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Save Configuration
+                </button>
               </div>
             </div>
           </div>

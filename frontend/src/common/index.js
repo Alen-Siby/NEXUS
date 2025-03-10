@@ -253,6 +253,10 @@ const SummaryApi = {
         url: `${backendDomin}/api/all-guest-lists`,
         method: "get"
     },
+    addToCartWithBakeryConfig: {
+        url: `${backendDomin}/api/addtocartwithbakeryconfig`,
+        method: 'post'
+    },
 }
 
 export default SummaryApi

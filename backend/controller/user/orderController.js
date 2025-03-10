@@ -32,15 +32,39 @@ const createOrUpdateOrder = async (req, res) => {
             const processedProduct = {
                 productId: product.productId,
                 productName: product.productName,
-                quantity: Number(product.quantity),
-                price: Number(product.price),
                 category: product.category,
                 vendor: product.vendor,
                 vendorName: product.vendorName,
                 image: product.image
             };
 
-            // Handle rental products with variant details
+            // For bakery products, set main quantity and price to 0
+            if (product.category.toLowerCase() === 'bakers') {
+                processedProduct.quantity = 0;
+                processedProduct.price = 0;
+
+                if (product.additionalDetails?.bakery) {
+                    const bakeryDetails = product.additionalDetails.bakery;
+                    processedProduct.additionalDetails = {
+                        bakery: {
+                            configuration: bakeryDetails.configuration.map(variant => ({
+                                variantId: variant.variantId,
+                                itemName: variant.itemName,
+                                quantity: Number(variant.quantity),
+                                price: Number(variant.price),
+                                image: variant.image
+                            })),
+                            totalPrice: Number(bakeryDetails.totalPrice)
+                        }
+                    };
+                }
+            } else {
+                // For non-bakery products, keep original quantity and price
+                processedProduct.quantity = Number(product.quantity);
+                processedProduct.price = Number(product.price);
+            }
+
+            // Keep existing rental handling
             if (product.category.toLowerCase() === 'rent' && product.additionalDetails?.rental) {
                 const rentalDetails = product.additionalDetails.rental;
                 processedProduct.additionalDetails = {
