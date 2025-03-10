@@ -45,6 +45,7 @@ const Cart = () => {
   const [selectedMenuItems, setSelectedMenuItems] = useState({});
   const [rentalDates, setRentalDates] = useState({});
   const [expandedConfigs, setExpandedConfigs] = useState({});
+  const [expandedVariantDetails, setExpandedVariantDetails] = useState({});
 
   // Array of colors for different courses
   const courseColors = {
@@ -650,114 +651,93 @@ const Cart = () => {
     }));
   };
 
+  // Function to toggle variant details visibility
+  const toggleVariantDetails = (productId) => {
+    setExpandedVariantDetails(prev => ({
+      ...prev,
+      [productId]: !prev[productId]
+    }));
+  };
+
   // Update the renderRentalDetails function
   const renderRentalDetails = (product) => {
     if (product.productId.category.toLowerCase() === 'rent' && product.rentalVariant) {
-      const variantRate = product.rentalVariant.variantPrice; // Daily rate
-      const quantity = product.quantity;
-      const totalPrice = variantRate * quantity; // Total price based on quantity
-
       return (
-        <div className="mt-4 border-t pt-4">
-          {/* Rental Details Summary */}
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div className="bg-blue-50 p-3 rounded-lg">
-              <p className="text-sm text-gray-600">Variant Rate</p>
-              <p className="text-lg font-semibold text-blue-700">
-                {displayINRCurrency(variantRate)}
-                <span className="text-sm font-normal text-gray-600">/day</span>
-              </p>
-            </div>
-            <div className="bg-green-50 p-3 rounded-lg">
-              <p className="text-sm text-gray-600">Total Price</p>
-              <p className="text-lg font-semibold text-green-700">
-                {displayINRCurrency(totalPrice)}
-              </p>
-            </div>
-          </div>
+        <div className="mt-4">
+          <button
+            onClick={() => toggleVariantDetails(product._id)}
+            className="text-blue-600 hover:text-blue-800 font-medium underline"
+          >
+            {expandedVariantDetails[product._id] ? 'Hide Details' : 'Show Details'}
+          </button>
 
-          {/* Variant Details */}
-          <div className="bg-gray-50 p-4 rounded-lg mb-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-600">Selected Variant:</span>
-              <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-                {product.rentalVariant.variantName}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-600">Duration:</span>
-              <span className="text-sm text-gray-800">
-                {product.rentalVariant.duration || 1} days
-              </span>
-            </div>
-          </div>
-
-          {/* Date Selection */}
-          <div className="space-y-4">
-            <h4 className="font-medium text-gray-700">Select Rental Dates</h4>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Start Date
-                </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    value={rentalDates[product._id]?.startDate || ''}
-                    onChange={(e) => handleDateChange(product._id, 'startDate', e.target.value)}
-                    min={new Date().toISOString().split('T')[0]}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 
-                      focus:ring-blue-500 focus:border-transparent"
-                  />
-                  <div className="absolute right-2 top-2 pointer-events-none text-gray-500">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
-                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  </div>
+          {expandedVariantDetails[product._id] && (
+            <div className="border-t pt-4">
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="bg-blue-50 p-3 rounded-lg">
+                  <p className="text-sm text-gray-600">Variant Rate</p>
+                  <p className="text-lg font-semibold text-blue-700">
+                    {displayINRCurrency(product.rentalVariant.variantPrice)}
+                    <span className="text-sm font-normal text-gray-600">/day</span>
+                  </p>
+                </div>
+                <div className="bg-green-50 p-3 rounded-lg">
+                  <p className="text-sm text-gray-600">Total Price</p>
+                  <p className="text-lg font-semibold text-green-700">
+                    {displayINRCurrency(product.rentalVariant.variantPrice * product.quantity)}
+                  </p>
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">
-                  End Date
-                </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    value={rentalDates[product._id]?.endDate || ''}
-                    onChange={(e) => handleDateChange(product._id, 'endDate', e.target.value)}
-                    min={rentalDates[product._id]?.startDate || new Date().toISOString().split('T')[0]}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 
-                      focus:ring-blue-500 focus:border-transparent"
-                  />
-                  <div className="absolute right-2 top-2 pointer-events-none text-gray-500">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
-                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
+
+              <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-600">Selected Variant:</span>
+                  <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                    {product.rentalVariant.variantName}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-600">Duration:</span>
+                  <span className="text-sm text-gray-800">
+                    {product.rentalVariant.duration || 1} days
+                  </span>
+                </div>
+              </div>
+
+              {/* Date Selection */}
+              <div className="space-y-4">
+                <h4 className="font-medium text-gray-700">Select Rental Dates</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">
+                      Start Date
+                    </label>
+                    <input
+                      type="date"
+                      value={rentalDates[product._id]?.startDate || ''}
+                      onChange={(e) => handleDateChange(product._id, 'startDate', e.target.value)}
+                      min={new Date().toISOString().split('T')[0]}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 
+                        focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">
+                      End Date
+                    </label>
+                    <input
+                      type="date"
+                      value={rentalDates[product._id]?.endDate || ''}
+                      onChange={(e) => handleDateChange(product._id, 'endDate', e.target.value)}
+                      min={rentalDates[product._id]?.startDate || new Date().toISOString().split('T')[0]}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 
+                        focus:ring-blue-500 focus:border-transparent"
+                    />
                   </div>
                 </div>
               </div>
             </div>
-            
-            {/* Rental Notes */}
-            <div className="mt-3 text-sm text-gray-500 bg-yellow-50 p-3 rounded-lg">
-              <p className="flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
-                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Security deposit may be required
-              </p>
-              <p className="flex items-center gap-2 mt-1">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
-                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Late return fees will apply
-              </p>
-            </div>
-          </div>
+          )}
         </div>
       );
     }
@@ -1109,6 +1089,86 @@ const Cart = () => {
         )}
       </div>
     );
+  };
+
+  // Function to handle quantity update for bakery items
+  const updateBakeryQuantity = async (productId, newQuantity, servingCapacity) => {
+    if (newQuantity < 1 || newQuantity > servingCapacity) return; // Prevent setting quantity to less than 1 or more than serving capacity
+
+    const response = await fetch(SummaryApi.updateCartProduct.url, {
+      method: SummaryApi.updateCartProduct.method,
+      credentials: "include",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        _id: productId,
+        quantity: newQuantity,
+      }),
+    });
+
+    const responseData = await response.json();
+    if (responseData.success) {
+      fetchData(); // Refresh cart data after updating
+    }
+  };
+
+  // Update the renderBakeryDetails function
+  const renderBakeryDetails = (product) => {
+    if (product.productId.category.toLowerCase() === 'bakery') {
+      return (
+        <div className="mt-4 border-t pt-4">
+          <div className="bg-gray-50 p-4 rounded-lg mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-600">Selected Variant:</span>
+              <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                {product.bakeryVariant.variantName}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-600">Configuration:</span>
+              <span className="text-sm text-gray-800">
+                {product.bakeryVariant.configuration}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-600">Serving Capacity:</span>
+              <span className="text-sm text-gray-800">
+                {product.bakeryVariant.servingCapacity}
+              </span>
+            </div>
+          </div>
+
+          {/* Quantity Update Section */}
+          <div className="flex items-center justify-between mt-4">
+            <span className="text-sm font-medium text-gray-600">Quantity:</span>
+            <div className="flex items-center">
+              <button
+                onClick={() => updateBakeryQuantity(product._id, product.quantity - 1, product.bakeryVariant.servingCapacity)}
+                className="px-2 py-1 bg-gray-200 rounded-l-md hover:bg-gray-300"
+              >
+                -
+              </button>
+              <input
+                type="number"
+                value={product.quantity}
+                onChange={(e) => updateBakeryQuantity(product._id, parseInt(e.target.value), product.bakeryVariant.servingCapacity)}
+                className="w-16 text-center border border-gray-300 rounded-md mx-1"
+                min="1"
+                max={product.bakeryVariant.servingCapacity} // Set max to serving capacity
+              />
+              <button
+                onClick={() => updateBakeryQuantity(product._id, product.quantity + 1, product.bakeryVariant.servingCapacity)}
+                className="px-2 py-1 bg-gray-200 rounded-r-md hover:bg-gray-300"
+              >
+                +
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return null;
   };
 
   return (
