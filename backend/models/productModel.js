@@ -55,6 +55,33 @@ const rentalVariantSchema = new mongoose.Schema({
     }
 });
 
+const bakeryVariantSchema = new mongoose.Schema({
+    itemName: {
+        type: String,
+        required: true
+    },
+    servingCapacity: {
+        type: Number,
+        required: true,
+        min: 1
+    },
+    price: {
+        type: Number,
+        required: true,
+        min: 0
+    },
+    images: {
+        type: [String],
+        required: true,
+        validate: {
+            validator: function(v) {
+                return v.length > 0;
+            },
+            message: 'At least one image is required for each bakery item'
+        }
+    }
+});
+
 const productSchema = mongoose.Schema({
     productName: {
         type: String,
@@ -110,6 +137,18 @@ const productSchema = mongoose.Schema({
                 return this.category !== 'rent' || (Array.isArray(v) && v.length > 0);
             },
             message: 'At least one variant is required for rental products'
+        }
+    },
+    bakeryVariants: {
+        type: [bakeryVariantSchema],
+        required: function() {
+            return this.category?.toLowerCase() === 'bakers';
+        },
+        validate: {
+            validator: function(v) {
+                return this.category?.toLowerCase() !== 'bakers' || (Array.isArray(v) && v.length > 0);
+            },
+            message: 'At least one bakery item is required for bakery products'
         }
     }
 }, {

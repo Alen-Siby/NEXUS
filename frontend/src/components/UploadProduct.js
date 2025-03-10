@@ -42,6 +42,11 @@ const UploadProduct = ({ onClose, fetchData }) => {
     { itemName: '', stock: '', price: '', images: [] }  // Added images array
   ]);
 
+  // Add new state for bakery items
+  const [bakeryVariants, setBakeryVariants] = useState([
+    { itemName: '', servingCapacity: '', price: '', images: [] }  // Added price field
+  ]);
+
   useEffect(() => {
     const fetchData = async () => {
       await fetchUserEmail();
@@ -202,6 +207,9 @@ const UploadProduct = ({ onClose, fetchData }) => {
       }),
       ...(data.category.toLowerCase() === "rent" && {
         rentalVariants: rentalVariants
+      }),
+      ...(data.category.toLowerCase() === "bakers" && {
+        bakeryVariants: bakeryVariants
       })
     };
 
@@ -412,6 +420,68 @@ const UploadProduct = ({ onClose, fetchData }) => {
     });
   };
 
+  // Add handlers for bakery variants
+  const handleBakeryVariantChange = (index, field, value) => {
+    const newVariants = [...bakeryVariants];
+    newVariants[index][field] = value;
+    setBakeryVariants(newVariants);
+  };
+
+  const addNewBakeryVariant = () => {
+    setBakeryVariants([...bakeryVariants, { itemName: '', servingCapacity: '', price: '', images: [] }]);
+  };
+
+  const removeBakeryVariant = (index) => {
+    const newVariants = bakeryVariants.filter((_, i) => i !== index);
+    setBakeryVariants(newVariants);
+  };
+
+  // Handle bakery variant image upload
+  const handleBakeryVariantImageUpload = async (e, variantIndex) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+
+    try {
+      const loadingToast = toast.loading(`Uploading ${files.length} images...`);
+      const uploadPromises = files.map(file => uploadImage(file));
+      const uploadedImages = await Promise.all(uploadPromises);
+
+      setBakeryVariants(prev => {
+        const newVariants = [...prev];
+        newVariants[variantIndex] = {
+          ...newVariants[variantIndex],
+          images: [
+            ...newVariants[variantIndex].images,
+            ...uploadedImages.map(result => result.url)
+          ]
+        };
+        return newVariants;
+      });
+
+      toast.update(loadingToast, {
+        render: `Successfully uploaded ${files.length} images`,
+        type: "success",
+        isLoading: false,
+        autoClose: 2000
+      });
+    } catch (error) {
+      console.error('Image upload error:', error);
+      toast.error('Failed to upload some images');
+    }
+  };
+
+  // Handle bakery variant image deletion
+  const handleDeleteBakeryVariantImage = (variantIndex, imageIndex) => {
+    setBakeryVariants(prev => {
+      const newVariants = [...prev];
+      newVariants[variantIndex] = {
+        ...newVariants[variantIndex],
+        images: newVariants[variantIndex].images.filter((_, i) => i !== imageIndex)
+      };
+      return newVariants;
+    });
+  };
+
   return (
     <div className='fixed  w-full h-full bg-slate-200 bg-opacity-35 top-0 left-0 right-0 bottom-0 flex justify-center items-center'>
       <div className='bg-white p-4 rounded w-full max-w-2xl h-full max-h-[80%] overflow-hidden'>
@@ -535,23 +605,22 @@ const UploadProduct = ({ onClose, fetchData }) => {
             </>
           )}
 
-          {/* Only show price field if category is NOT rent */}
-          {data.category.toLowerCase() !== "rent" && (
-            <>
-              <label htmlFor='price' className='mt-3'>Price :</label>
-              <label htmlFor='for' className='text-xs text-blue-500'>*For caters, logistics, and bakers price is price per head/plate</label>
-              <label htmlFor='for' className='text-xs text-pink-600'>*For others price is for the package</label>
+          {/* Only show price field if category is NOT bakers */}
+          {data.category && data.category.toLowerCase() !== "bakers" && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Price</label>
               <input
-                type='number'
-                id='price'
-                placeholder='Enter price'
-                name='price'
+                type="number"
+                name="price"
                 value={data.price}
                 onChange={handleOnChange}
-                className='p-2 bg-slate-100 border rounded'
-                required
+                placeholder="Enter price"
+                className="p-2.5 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg 
+                  focus:ring-blue-500 focus:border-blue-500 block w-full transition-colors
+                  hover:bg-gray-50"
+                required={data.category.toLowerCase() !== "bakers"}
               />
-            </>
+            </div>
           )}
 
           <label htmlFor='description' className='mt-3'>Description :</label>
@@ -824,6 +893,147 @@ const UploadProduct = ({ onClose, fetchData }) => {
                   )}
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Add Bakery Variants Section */}
+          {data.category.toLowerCase() === "bakers" && (
+            <div className="mt-6 space-y-6">
+              <h3 className="font-semibold text-lg text-gray-800 border-b pb-2">Bakery Items</h3>
+              {bakeryVariants.map((variant, index) => (
+                <div key={index} className="p-6 border border-gray-200 rounded-xl space-y-4 bg-white shadow-sm hover:shadow-md transition-shadow duration-200">
+                  <div className="flex justify-between items-center border-b pb-3">
+                    <h4 className="font-medium text-gray-700 flex items-center gap-2">
+                      <span className="bg-blue-100 text-blue-600 px-2 py-1 rounded-full text-sm">
+                        Item {index + 1}
+                      </span>
+                    </h4>
+                    {index > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => removeBakeryVariant(index)}
+                        className="text-red-500 hover:text-red-700 flex items-center gap-1 text-sm font-medium"
+                      >
+                        <MdDelete size={18} />
+                        Remove Item
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Three columns layout for inputs */}
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700">Item Name</label>
+                      <input
+                        type="text"
+                        placeholder="e.g., Chocolate Cake"
+                        value={variant.itemName}
+                        onChange={(e) => handleBakeryVariantChange(index, 'itemName', e.target.value)}
+                        className="p-2.5 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg 
+                          focus:ring-blue-500 focus:border-blue-500 block w-full transition-colors
+                          hover:bg-gray-50"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700">Serving Capacity</label>
+                      <input
+                        type="number"
+                        placeholder="Number of pieces"
+                        value={variant.servingCapacity}
+                        onChange={(e) => handleBakeryVariantChange(index, 'servingCapacity', e.target.value)}
+                        className="p-2.5 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg 
+                          focus:ring-blue-500 focus:border-blue-500 block w-full transition-colors
+                          hover:bg-gray-50"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700">Price (₹)</label>
+                      <input
+                        type="number"
+                        placeholder="Enter price"
+                        value={variant.price}
+                        onChange={(e) => handleBakeryVariantChange(index, 'price', e.target.value)}
+                        className="p-2.5 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg 
+                          focus:ring-blue-500 focus:border-blue-500 block w-full transition-colors
+                          hover:bg-gray-50"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Enhanced image upload section */}
+                  <div className="space-y-3">
+                    <label className="block text-sm font-medium text-gray-700">Item Images</label>
+                    <div className="flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg 
+                      hover:border-gray-400 transition-colors cursor-pointer relative">
+                      <div className="space-y-1 text-center">
+                        <FaCloudUploadAlt className="mx-auto h-12 w-12 text-gray-400" />
+                        <div className="flex text-sm text-gray-600">
+                          <label htmlFor={`file-upload-${index}`} className="relative cursor-pointer rounded-md font-medium 
+                            text-blue-600 hover:text-blue-500 focus-within:outline-none">
+                            <span>Upload images</span>
+                            <input
+                              id={`file-upload-${index}`}
+                              type="file"
+                              multiple
+                              accept="image/*"
+                              onChange={(e) => handleBakeryVariantImageUpload(e, index)}
+                              className="sr-only"
+                            />
+                          </label>
+                          <p className="pl-1">or drag and drop</p>
+                        </div>
+                        <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
+                      </div>
+                    </div>
+
+                    {/* Image preview grid with animation */}
+                    {variant.images.length > 0 && (
+                      <div className="grid grid-cols-4 gap-4 mt-4">
+                        {variant.images.map((image, imgIndex) => (
+                          <div 
+                            key={imgIndex} 
+                            className="relative group rounded-lg overflow-hidden transform transition-transform 
+                              duration-200 hover:scale-105 shadow-sm"
+                          >
+                            <img
+                              src={image}
+                              alt={`Bakery item ${index + 1}`}
+                              className="w-full h-24 object-cover"
+                            />
+                            <div className="absolute inset-0 bg-black bg-opacity-40 opacity-0 group-hover:opacity-100 
+                              transition-opacity duration-200 flex items-center justify-center">
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteBakeryVariantImage(index, imgIndex)}
+                                className="text-white p-1.5 rounded-full bg-red-500 hover:bg-red-600 
+                                  transition-colors duration-200"
+                              >
+                                <MdDelete size={18} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {/* Add new item button */}
+              <button
+                type="button"
+                onClick={addNewBakeryVariant}
+                className="w-full p-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-600 
+                  hover:border-blue-400 hover:text-blue-600 transition-all duration-200 flex items-center 
+                  justify-center gap-2 bg-gray-50 hover:bg-blue-50"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                Add Another Bakery Item
+              </button>
             </div>
           )}
 

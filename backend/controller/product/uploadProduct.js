@@ -101,6 +101,42 @@ async function UploadProductController(req, res) {
             delete productData.price;
         }
 
+        // If it's a bakery product, validate and structure the bakery data
+        if (productData.category.toLowerCase() === "bakers" && productData.bakeryVariants) {
+            console.log('Processing bakery variants:', productData.bakeryVariants);
+            
+            // Validate bakery variants
+            if (!Array.isArray(productData.bakeryVariants)) {
+                throw new Error("Bakery variants must be an array");
+            }
+
+            // Validate each variant
+            productData.bakeryVariants.forEach((variant, index) => {
+                if (!variant.itemName) {
+                    throw new Error(`Item name is required for bakery item ${index + 1}`);
+                }
+                if (!variant.servingCapacity || variant.servingCapacity < 1) {
+                    throw new Error(`Valid serving capacity is required for ${variant.itemName}`);
+                }
+                
+                // Validate images
+                if (!Array.isArray(variant.images)) {
+                    throw new Error(`Images must be an array for bakery item ${variant.itemName}`);
+                }
+                if (variant.images.length === 0) {
+                    throw new Error(`At least one image is required for bakery item ${variant.itemName}`);
+                }
+                variant.images.forEach((image, imageIndex) => {
+                    if (!image || typeof image !== 'string') {
+                        throw new Error(`Invalid image URL at position ${imageIndex + 1} for bakery item ${variant.itemName}`);
+                    }
+                });
+            });
+
+            // For bakery products, use the first variant's first image as the main product image
+            productData.productImage = productData.bakeryVariants[0].images;
+        }
+
         console.log('Saving product with data:', productData);
 
         const uploadProduct = new productModel(productData)

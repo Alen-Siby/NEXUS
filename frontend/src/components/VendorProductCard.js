@@ -84,6 +84,23 @@ const VendorProductCard = ({ data, fetchdata }) => {
     return `${displayINRCurrency(minPrice)} - ${displayINRCurrency(maxPrice)}`;
   };
 
+  // Function to get price range for bakery items
+  const getBakeryPriceRange = () => {
+    if (!data.bakeryVariants || data.bakeryVariants.length === 0) {
+      return "Price not available";
+    }
+
+    const prices = data.bakeryVariants.map(item => item.price);
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+
+    if (minPrice === maxPrice) {
+      return displayINRCurrency(minPrice);
+    }
+
+    return `${displayINRCurrency(minPrice)} - ${displayINRCurrency(maxPrice)}`;
+  };
+
   return (
     <div className={`
       ${isDarkMode ? 'bg-gray-800 text-white' : 'bg-white'}
@@ -113,7 +130,9 @@ const VendorProductCard = ({ data, fetchdata }) => {
         <p className='font-bold mb-1.5 text-sm'>
           {data.category.toLowerCase() === 'rent' 
             ? getRentalPriceRange()
-            : displayINRCurrency(data.price)
+            : data.category.toLowerCase() === 'bakers'
+              ? getBakeryPriceRange()
+              : displayINRCurrency(data.price)
           }
         </p>
 

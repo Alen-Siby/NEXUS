@@ -152,6 +152,40 @@ const VerticalCardProduct = ({ category, heading }) => {
         return null;
     };
 
+    // Function to get price range for rental items
+    const getRentalPriceRange = (product) => {
+        if (!product.rentalVariants || product.rentalVariants.length === 0) {
+            return product.price ? `₹${product.price}` : "Price not available";
+        }
+
+        const prices = product.rentalVariants.map(item => item.price);
+        const minPrice = Math.min(...prices);
+        const maxPrice = Math.max(...prices);
+
+        if (minPrice === maxPrice) {
+            return `₹${minPrice}`;
+        }
+
+        return `₹${minPrice} - ₹${maxPrice}`;
+    };
+
+    // Function to get price range for bakery items
+    const getBakeryPriceRange = (product) => {
+        if (!product.bakeryVariants || product.bakeryVariants.length === 0) {
+            return product.price ? `₹${product.price}` : "Price not available";
+        }
+
+        const prices = product.bakeryVariants.map(item => item.price);
+        const minPrice = Math.min(...prices);
+        const maxPrice = Math.max(...prices);
+
+        if (minPrice === maxPrice) {
+            return `₹${minPrice}`;
+        }
+
+        return `₹${minPrice} - ₹${maxPrice}`;
+    };
+
     return (
         <div className="px-6 py-4">
             <h2 className="text-2xl font-semibold text-gray-800 mb-6">{heading}</h2>
@@ -266,7 +300,14 @@ const VerticalCardProduct = ({ category, heading }) => {
                                         
                                         {/* Price and View Arrow */}
                                         <div className="flex justify-between items-center">
-                                            <p className="text-sm font-semibold text-green-600">₹{product.price}</p>
+                                            <p className="text-sm font-semibold text-green-600">
+                                                {product.category.toLowerCase() === 'rent' 
+                                                    ? getRentalPriceRange(product)
+                                                    : product.category.toLowerCase() === 'bakers'
+                                                        ? getBakeryPriceRange(product)
+                                                        : `₹${product.price}`
+                                                }
+                                            </p>
                                             <span className="text-blue-600 opacity-0 group-hover:opacity-100 
                                                 transition-opacity duration-200 text-xs">
                                                 View →
