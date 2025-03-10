@@ -242,6 +242,7 @@ const ProductDetails = () => {
   };
 
   const addToCartWithVariant = async (e, productId) => {
+    e.stopPropagation();
     try {
       if (!selectedVariant) {
         toast.error('Please select a variant first');
@@ -368,9 +369,38 @@ const ProductDetails = () => {
   };
 
   // Modified handleAddToCart function
-  const handleAddToCart = async () => {
+  const handleAddToCart = async (e) => {
+    e.preventDefault(); // Prevent default action
+    // Ensure the event is passed to addToCart
     try {
-      if (data.category.toLowerCase() === 'rent') {
+      if (data.category.toLowerCase() === 'bakers') {
+        // Handle adding bakery items with configuration
+        if (!currentBakeryConfiguration) {
+          toast.error('Please configure your bakery items before adding to cart');
+          return;
+        }
+
+        const response = await fetch(SummaryApi.addToCartWithBakeryConfig.url, {
+          method: SummaryApi.addToCartWithBakeryConfig.method,
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            productId: params.id,
+            selectedVariant: selectedBakeryVariant,
+            configuration: currentBakeryConfiguration // Pass the bakery configuration
+          })
+        });
+
+        const responseData = await response.json();
+        if (responseData.success) {
+          toast.success('Bakery items added to cart successfully');
+          fetchUserAddToCart();
+        } else {
+          toast.error(responseData.message || 'Failed to add bakery items to cart');
+        }
+      } else if (data.category.toLowerCase() === 'rent') {
         if (!selectedRentalVariant) {
           toast.error('Please select a rental variant');
           return;
@@ -404,7 +434,7 @@ const ProductDetails = () => {
         }
       } else {
         // Regular products use the existing addToCart helper
-        const success = await addToCart(params.id, quantity, fetchUserAddToCart);
+        const success = await addToCart(params.id, quantity, fetchUserAddToCart, e); // Pass event here
         if (success) {
           toast.success('Product added to cart successfully');
         }
@@ -1000,7 +1030,7 @@ const ProductDetails = () => {
                   <div className="flex items-center space-x-4">
                     <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden shadow-sm">
                       <button
-                        onClick={() => quantity > 1 && setQuantity(quantity - 1)}
+                        onClick={(e) => quantity > 1 && setQuantity(quantity - 1)}
                         className="px-4 py-2 bg-gray-50 hover:bg-gray-100 border-r border-gray-300 
                           transition-colors duration-200 focus:outline-none focus:ring-2 
                           focus:ring-blue-500 focus:ring-opacity-50"
@@ -1017,7 +1047,7 @@ const ProductDetails = () => {
                           focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 text-gray-700"
                       />
                       <button
-                        onClick={() => setQuantity(quantity + 1)}
+                        onClick={(e) => setQuantity(quantity + 1)}
                         className="px-4 py-2 bg-gray-50 hover:bg-gray-100 border-l border-gray-300 
                           transition-colors duration-200 focus:outline-none focus:ring-2 
                           focus:ring-blue-500 focus:ring-opacity-50"
@@ -1056,7 +1086,7 @@ const ProductDetails = () => {
                 
                 <div className='grid grid-cols-2 gap-4'>
                   <button
-                    onClick={(e) => handleAddToCart(e)}
+                    onClick={handleAddToCart}
                     disabled={data?.category === "rent" && !selectedRentalVariant}
                     className='w-full bg-blue-600 text-white px-6 py-3.5 rounded-xl 
                       font-medium hover:bg-blue-700 transition-all duration-200 
@@ -1068,7 +1098,7 @@ const ProductDetails = () => {
                   </button>
 
                   <button
-                    onClick={(e) => handleAddToCart(e)}
+                    onClick={handleAddToCart}
                     disabled={data?.category === "rent" && !selectedRentalVariant}
                     className='w-full bg-green-600 text-white px-6 py-3.5 rounded-xl 
                       font-medium hover:bg-green-700 transition-all duration-200 
