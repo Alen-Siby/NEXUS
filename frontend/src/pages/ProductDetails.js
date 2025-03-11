@@ -370,13 +370,17 @@ const ProductDetails = () => {
 
   // Modified handleAddToCart function
   const handleAddToCart = async (e) => {
-    e.preventDefault(); // Prevent default action
-    // Ensure the event is passed to addToCart
+    e.preventDefault();
     try {
       if (data.category.toLowerCase() === 'bakers') {
         // Handle adding bakery items with configuration
         if (!currentBakeryConfiguration) {
           toast.error('Please configure your bakery items before adding to cart');
+          return;
+        }
+
+        if (!selectedBakeryVariant) {
+          toast.error('Please select a bakery variant');
           return;
         }
 
@@ -388,8 +392,11 @@ const ProductDetails = () => {
           },
           body: JSON.stringify({
             productId: params.id,
-            selectedVariant: selectedBakeryVariant,
-            configuration: currentBakeryConfiguration // Pass the bakery configuration
+            selectedVariant: {
+              ...selectedBakeryVariant,
+              servingCapacity: selectedBakeryVariant.servingCapacity // Include serving capacity
+            },
+            configuration: currentBakeryConfiguration
           })
         });
 

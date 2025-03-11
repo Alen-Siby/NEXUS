@@ -207,13 +207,14 @@ const addToCartWithBakeryConfigController = async (req, res) => {
     // If product not in cart, create new entry
     const payload = {
       productId: productId,
-      quantity: 1, // Bakery items don't use main quantity
+      quantity: 1, // Initial quantity
       userId: currentUser,
       bakeryVariant: {
         variantId: selectedVariant._id,
         variantName: selectedVariant.itemName,
         variantPrice: selectedVariant.price,
-        configuration: configuration
+        configuration: configuration,
+        servingCapacity: selectedVariant.servingCapacity // Add serving capacity
       }
     };
 

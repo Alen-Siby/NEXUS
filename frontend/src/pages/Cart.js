@@ -46,6 +46,7 @@ const Cart = () => {
   const [rentalDates, setRentalDates] = useState({});
   const [expandedConfigs, setExpandedConfigs] = useState({});
   const [expandedVariantDetails, setExpandedVariantDetails] = useState({});
+  const [configQuantities, setConfigQuantities] = useState({});
 
   // Array of colors for different courses
   const courseColors = {
@@ -1029,10 +1030,76 @@ const Cart = () => {
     return colors[Math.floor(Math.random() * colors.length)];
   };
 
-  // Helper function to render bakery configuration
+  // Function to update individual configuration quantities
+  const updateConfigQuantity = async (itemId, productId, newQuantity, currentConfig) => {
+    try {
+      if (newQuantity < 1) return; // Prevent negative quantities
+
+      // Update local state immediately
+      setConfigQuantities(prev => ({
+        ...prev,
+        [productId]: {
+          ...prev[productId],
+          [itemId]: newQuantity
+        }
+      }));
+
+      // Create a new configuration object with the updated quantity
+      const updatedConfig = {
+        ...currentConfig,
+        [itemId]: parseInt(newQuantity)
+      };
+
+      const response = await fetch(SummaryApi.updateCartProduct.url, {
+        method: SummaryApi.updateCartProduct.method,
+        credentials: "include",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          _id: productId,
+          bakeryVariant: {
+            ...currentConfig,
+            configuration: updatedConfig
+          }
+        }),
+      });
+
+      const responseData = await response.json();
+      if (!responseData.success) {
+        // Revert local state if update fails
+        setConfigQuantities(prev => ({
+          ...prev,
+          [productId]: currentConfig
+        }));
+        toast.error(responseData.message || "Failed to update quantity");
+      }
+    } catch (error) {
+      console.error("Error updating configuration quantity:", error);
+      // Revert local state on error
+      setConfigQuantities(prev => ({
+        ...prev,
+        [productId]: currentConfig
+      }));
+      toast.error("Failed to update quantity");
+    }
+  };
+
+  // Initialize config quantities when data changes
+  useEffect(() => {
+    const newConfigQuantities = {};
+    data.forEach(item => {
+      if (item.bakeryVariant?.configuration) {
+        newConfigQuantities[item._id] = item.bakeryVariant.configuration;
+      }
+    });
+    setConfigQuantities(newConfigQuantities);
+  }, [data]);
+
   const renderBakeryConfig = (item) => {
     if (!item.bakeryVariant?.configuration) return null;
     const isExpanded = expandedConfigs[item._id];
+    const currentConfig = configQuantities[item._id] || item.bakeryVariant.configuration;
 
     return (
       <div className="mt-2">
@@ -1053,32 +1120,43 @@ const Cart = () => {
 
         {isExpanded && (
           <div className="mt-3 space-y-2">
+            {/* Configuration Details with Editable Quantities */}
             <div className="flex flex-wrap gap-2">
-              {Object.entries(item.bakeryVariant.configuration).map(([itemId, quantity]) => {
+              {Object.entries(currentConfig).map(([itemId, quantity]) => {
                 const variant = item.productId?.bakeryVariants?.find(v => v._id === itemId);
-                if (variant && quantity > 0) {
+                if (variant && quantity >= 0) {
                   const colorClass = getQuantityColor(quantity);
                   return (
-                    <span
+                    <div
                       key={itemId}
                       className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${colorClass}`}
                     >
-                      {variant.itemName} × {quantity}
-                    </span>
-                  );
-                }
-                return null;
-              })}
-            </div>
-            
-            <div className="text-sm text-gray-600 mt-2">
-              {Object.entries(item.bakeryVariant.configuration).map(([itemId, quantity]) => {
-                const variant = item.productId?.bakeryVariants?.find(v => v._id === itemId);
-                if (variant && quantity > 0) {
-                  return (
-                    <div key={itemId} className="flex justify-between items-center py-1">
-                      <span>{variant.itemName}</span>
-                      <span className="text-green-600">₹{variant.price * quantity}</span>
+                      <span className="mr-2">{variant.itemName} ×</span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateConfigQuantity(itemId, item._id, quantity - 1, item.bakeryVariant);
+                          }}
+                          disabled={quantity <= 1}
+                          className="px-2 py-0.5 text-xs bg-white/30 rounded hover:bg-white/40 
+                            disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          -
+                        </button>
+                        <span className="w-8 text-center">{quantity}</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateConfigQuantity(itemId, item._id, quantity + 1, item.bakeryVariant);
+                          }}
+                          disabled={quantity >= (variant.servingCapacity || 999)}
+                          className="px-2 py-0.5 text-xs bg-white/30 rounded hover:bg-white/40 
+                            disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          +
+                        </button>
+                      </div>
                     </div>
                   );
                 }
@@ -1091,25 +1169,32 @@ const Cart = () => {
     );
   };
 
-  // Function to handle quantity update for bakery items
-  const updateBakeryQuantity = async (productId, newQuantity, servingCapacity) => {
-    if (newQuantity < 1 || newQuantity > servingCapacity) return; // Prevent setting quantity to less than 1 or more than serving capacity
+  // Update the updateBakeryQuantity function to handle direct quantity updates
+  const updateBakeryQuantity = async (productId, newQuantity) => {
+    try {
+      if (newQuantity < 1) return; // Prevent setting quantity to less than 1
 
-    const response = await fetch(SummaryApi.updateCartProduct.url, {
-      method: SummaryApi.updateCartProduct.method,
-      credentials: "include",
-      headers: {
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        _id: productId,
-        quantity: newQuantity,
-      }),
-    });
+      const response = await fetch(SummaryApi.updateCartProduct.url, {
+        method: SummaryApi.updateCartProduct.method,
+        credentials: "include",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          _id: productId,
+          quantity: newQuantity,
+        }),
+      });
 
-    const responseData = await response.json();
-    if (responseData.success) {
-      fetchData(); // Refresh cart data after updating
+      const responseData = await response.json();
+      if (responseData.success) {
+        fetchData(); // Refresh cart data after updating
+      } else {
+        toast.error(responseData.message || "Failed to update quantity");
+      }
+    } catch (error) {
+      console.error("Error updating quantity:", error);
+      toast.error("Failed to update quantity");
     }
   };
 
@@ -1144,7 +1229,7 @@ const Cart = () => {
             <span className="text-sm font-medium text-gray-600">Quantity:</span>
             <div className="flex items-center">
               <button
-                onClick={() => updateBakeryQuantity(product._id, product.quantity - 1, product.bakeryVariant.servingCapacity)}
+                onClick={() => updateBakeryQuantity(product._id, product.quantity - 1)}
                 className="px-2 py-1 bg-gray-200 rounded-l-md hover:bg-gray-300"
               >
                 -
@@ -1152,13 +1237,13 @@ const Cart = () => {
               <input
                 type="number"
                 value={product.quantity}
-                onChange={(e) => updateBakeryQuantity(product._id, parseInt(e.target.value), product.bakeryVariant.servingCapacity)}
+                onChange={(e) => updateBakeryQuantity(product._id, parseInt(e.target.value))}
                 className="w-16 text-center border border-gray-300 rounded-md mx-1"
                 min="1"
                 max={product.bakeryVariant.servingCapacity} // Set max to serving capacity
               />
               <button
-                onClick={() => updateBakeryQuantity(product._id, product.quantity + 1, product.bakeryVariant.servingCapacity)}
+                onClick={() => updateBakeryQuantity(product._id, product.quantity + 1)}
                 className="px-2 py-1 bg-gray-200 rounded-r-md hover:bg-gray-300"
               >
                 +

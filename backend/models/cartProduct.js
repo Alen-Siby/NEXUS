@@ -24,7 +24,8 @@ const addToCart = mongoose.Schema({
             variantId: String,
             variantName: String,
             variantPrice: Number,
-            configuration: Object // For storing bakery item quantities
+            configuration: Object,
+            servingCapacity: Number
         },
         default: null
    }
