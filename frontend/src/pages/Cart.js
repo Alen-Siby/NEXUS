@@ -1030,25 +1030,30 @@ const Cart = () => {
     return colors[Math.floor(Math.random() * colors.length)];
   };
 
-  // Function to update individual configuration quantities
-  const updateConfigQuantity = async (itemId, productId, newQuantity, currentConfig) => {
+  // Update the updateConfigQuantity function
+  const updateConfigQuantity = async (itemId, productId, newQuantity, currentVariant) => {
     try {
       if (newQuantity < 1) return; // Prevent negative quantities
 
-      // Update local state immediately
-      setConfigQuantities(prev => ({
-        ...prev,
-        [productId]: {
-          ...prev[productId],
-          [itemId]: newQuantity
-        }
-      }));
-
       // Create a new configuration object with the updated quantity
       const updatedConfig = {
-        ...currentConfig,
-        [itemId]: parseInt(newQuantity)
+        ...currentVariant.configuration,
+        [itemId]: newQuantity
       };
+
+      // Update local state immediately for responsive UI
+      setData(prevData => prevData.map(item => {
+        if (item._id === productId) {
+          return {
+            ...item,
+            bakeryVariant: {
+              ...item.bakeryVariant,
+              configuration: updatedConfig
+            }
+          };
+        }
+        return item;
+      }));
 
       const response = await fetch(SummaryApi.updateCartProduct.url, {
         method: SummaryApi.updateCartProduct.method,
@@ -1059,7 +1064,7 @@ const Cart = () => {
         body: JSON.stringify({
           _id: productId,
           bakeryVariant: {
-            ...currentConfig,
+            ...currentVariant,
             configuration: updatedConfig
           }
         }),
@@ -1068,19 +1073,12 @@ const Cart = () => {
       const responseData = await response.json();
       if (!responseData.success) {
         // Revert local state if update fails
-        setConfigQuantities(prev => ({
-          ...prev,
-          [productId]: currentConfig
-        }));
+        fetchData(); // Refresh cart data
         toast.error(responseData.message || "Failed to update quantity");
       }
     } catch (error) {
       console.error("Error updating configuration quantity:", error);
-      // Revert local state on error
-      setConfigQuantities(prev => ({
-        ...prev,
-        [productId]: currentConfig
-      }));
+      fetchData(); // Refresh cart data on error
       toast.error("Failed to update quantity");
     }
   };
@@ -1096,6 +1094,7 @@ const Cart = () => {
     setConfigQuantities(newConfigQuantities);
   }, [data]);
 
+  // Update the renderBakeryConfig function to remove price displays
   const renderBakeryConfig = (item) => {
     if (!item.bakeryVariant?.configuration) return null;
     const isExpanded = expandedConfigs[item._id];
@@ -1120,18 +1119,18 @@ const Cart = () => {
 
         {isExpanded && (
           <div className="mt-3 space-y-2">
-            {/* Configuration Details with Editable Quantities */}
             <div className="flex flex-wrap gap-2">
               {Object.entries(currentConfig).map(([itemId, quantity]) => {
                 const variant = item.productId?.bakeryVariants?.find(v => v._id === itemId);
                 if (variant && quantity >= 0) {
                   const colorClass = getQuantityColor(quantity);
+                  
                   return (
                     <div
                       key={itemId}
                       className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${colorClass}`}
                     >
-                      <span className="mr-2">{variant.itemName} ×</span>
+                      <span className="mr-2">{variant.itemName}</span>
                       <div className="flex items-center gap-1">
                         <button
                           onClick={(e) => {
