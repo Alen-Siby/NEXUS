@@ -184,25 +184,70 @@ const RecommendedEvents = () => {
       setLoading(true);
       
       // Get the normalized occasion
-      const normalizedOccasion = editedDetails.occasion.toLowerCase();
+      const normalizedOccasion = editedDetails.occasion.toLowerCase().trim();
       
       // Find matching event type from occasion mappings
-      let eventType = 'marriage'; // default fallback
-      for (const [key, mappedOccasions] of Object.entries(occasionMappings)) {
-        if (mappedOccasions.some(mapped => normalizedOccasion.includes(mapped))) {
-          eventType = key;
-          break;
+      let matchedEventType = null;
+      let highestMatchScore = 0;
+
+      // Log for debugging
+      console.log('Searching for event type match for:', normalizedOccasion);
+
+      for (const [eventType, mappedOccasions] of Object.entries(occasionMappings)) {
+        // Calculate match score based on word matches
+        const occasionWords = normalizedOccasion.split(/\s+/);
+        let matchScore = 0;
+
+        mappedOccasions.forEach(mapped => {
+          occasionWords.forEach(word => {
+            if (mapped.includes(word) || word.includes(mapped)) {
+              matchScore++;
+            }
+          });
+        });
+
+        // Log match scores for debugging
+        console.log(`Event type ${eventType} match score:`, matchScore);
+
+        if (matchScore > highestMatchScore) {
+          highestMatchScore = matchScore;
+          matchedEventType = eventType;
         }
       }
-      
-      // Log the event type for debugging
-      console.log('Current event type:', eventType);
+
+      // If no match found, try to find a partial match
+      if (!matchedEventType) {
+        for (const [eventType, mappedOccasions] of Object.entries(occasionMappings)) {
+          if (mappedOccasions.some(mapped => 
+            normalizedOccasion.includes(mapped) || 
+            mapped.includes(normalizedOccasion)
+          )) {
+            matchedEventType = eventType;
+            break;
+          }
+        }
+      }
+
+      // If still no match, use default event type based on keywords
+      if (!matchedEventType) {
+        if (normalizedOccasion.includes('party') || normalizedOccasion.includes('celebration')) {
+          matchedEventType = 'social';
+        } else if (normalizedOccasion.includes('meeting') || normalizedOccasion.includes('conference')) {
+          matchedEventType = 'corporate';
+        } else {
+          matchedEventType = 'social'; // Default fallback
+        }
+      }
+
+      // Log final event type selection
+      console.log('Selected event type:', matchedEventType);
       console.log('Original occasion:', editedDetails.occasion);
-      
+
       // Ensure we're using the correct event configuration
-      if (!eventTypeCategories[eventType]) {
-        console.error('No configuration found for event type:', eventType);
-        return;
+      if (!eventTypeCategories[matchedEventType]) {
+        console.error('No configuration found for event type:', matchedEventType);
+        // Fall back to 'social' if the matched type has no configuration
+        matchedEventType = 'social';
       }
 
       // Fetch all products if not already fetched
@@ -218,15 +263,15 @@ const RecommendedEvents = () => {
         setAllProducts(products);
 
         // Generate packages after products are fetched
-        const eventConfig = eventTypeCategories[eventType];
-        console.log('Using event config:', eventConfig); // Debug log
+        const eventConfig = eventTypeCategories[matchedEventType];
+        console.log('Using event config:', eventConfig);
         const generatedPackages = createPackages(products, editedDetails, eventConfig);
         console.log('Generated packages:', generatedPackages);
         setPackages(generatedPackages);
       } else {
         // If products already exist, generate packages with existing products
-        const eventConfig = eventTypeCategories[eventType];
-        console.log('Using event config:', eventConfig); // Debug log
+        const eventConfig = eventTypeCategories[matchedEventType];
+        console.log('Using event config:', eventConfig);
         const generatedPackages = createPackages(allProducts, editedDetails, eventConfig);
         console.log('Generated packages:', generatedPackages);
         setPackages(generatedPackages);

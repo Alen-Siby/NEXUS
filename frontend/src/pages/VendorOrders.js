@@ -379,17 +379,46 @@ const VendorOrders = () => {
                               </>
                             )}
 
-                            <div className="text-sm font-medium text-gray-800">
-                              <p>Price: {displayINRCurrency(item.price)} / item</p>
-                              <p>Total: {displayINRCurrency(item.price * item.quantity)}</p>
-                            </div>
+                            {/* Add Bakery Configuration Details */}
+                            {item.category?.toLowerCase() === 'bakers' && item.additionalDetails?.bakery?.configuration && (
+                              <div className="mt-2 w-full">
+                                <p className="text-sm font-medium text-gray-700 mb-2">Configuration Details:</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {item.additionalDetails.bakery.configuration.map((config, idx) => (
+                                    <div
+                                      key={idx}
+                                      className="inline-flex items-center px-3 py-1 rounded-full text-sm 
+                                        bg-blue-100 text-blue-800"
+                                    >
+                                      <span className="font-medium">{config.itemName}</span>
+                                      <span className="mx-1">×</span>
+                                      <span>{config.quantity}</span>
+                                      <span className="ml-2 text-blue-600">
+                                        ₹{config.price * config.quantity}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                                <p className="text-sm font-medium text-gray-700 mt-2">
+                                  Total Configuration Price: {displayINRCurrency(item.additionalDetails.bakery.totalPrice)}
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Only show price/item and total for non-bakery products */}
+                            {item.category?.toLowerCase() !== 'bakers' && (
+                              <div className="text-sm font-medium text-gray-800">
+                                <p>Price: {displayINRCurrency(item.price)} / item</p>
+                                <p>Total: {displayINRCurrency(item.price * item.quantity)}</p>
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
                     })}
                   </div>
 
-                  {/* Order Summary - Only showing vendor's products total */}
+                  {/* Order Summary - Update the total calculation for bakery products */}
                   <div className="mt-4 pt-4 border-t">
                     <div className="flex justify-between items-center">
                       <div>
@@ -401,7 +430,14 @@ const VendorOrders = () => {
                         <p className="text-sm text-gray-600">Total Items: {order.products.length}</p>
                         <p className="font-medium">
                           Total Amount: {displayINRCurrency(
-                            order.products.reduce((total, item) => total + (item.price * item.quantity), 0)
+                            order.products.reduce((total, item) => {
+                              if (item.category?.toLowerCase() === 'bakers' && item.additionalDetails?.bakery?.configuration) {
+                                // For bakery items, use the configuration total
+                                return total + item.additionalDetails.bakery.totalPrice;
+                              }
+                              // For other items, use the regular price calculation
+                              return total + (item.price * item.quantity);
+                            }, 0)
                           )}
                         </p>
                       </div>

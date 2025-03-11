@@ -64,7 +64,7 @@ const VendorPanel = () => {
               {/* Collapse/Expand Button */}
               <button
                 onClick={toggleCollapse}
-                className={`absolute top-60 p-2 bg-gray-200 hover:bg-blue-500 transition duration-300 ease-in-out rounded-full flex items-center justify-center ${
+                className={`absolute top-72 p-2 bg-gray-200 hover:bg-blue-500 transition duration-300 ease-in-out rounded-full flex items-center justify-center ${
                   isCollapsed ? "left-3/4" : "left-60"
                 }`}
               >
