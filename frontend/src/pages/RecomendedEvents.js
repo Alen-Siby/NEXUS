@@ -456,30 +456,45 @@ const RecommendedEvents = () => {
     const minBudget = budget[0];
     const maxBudget = budget[1];
 
-    // Create 5 budget ranges with descriptive labels
+    // Create more budget ranges to ensure minimum packages
     const budgetRanges = [
       { 
         min: minBudget, 
-        max: minBudget + (maxBudget - minBudget) * 0.2, 
+        max: minBudget + (maxBudget - minBudget) * 0.15, 
         label: 'Budget Friendly'
       },
       { 
-        min: minBudget + (maxBudget - minBudget) * 0.2, 
-        max: minBudget + (maxBudget - minBudget) * 0.4, 
+        min: minBudget + (maxBudget - minBudget) * 0.15, 
+        max: minBudget + (maxBudget - minBudget) * 0.3, 
         label: 'Value Plus'
       },
       { 
-        min: minBudget + (maxBudget - minBudget) * 0.4, 
+        min: minBudget + (maxBudget - minBudget) * 0.3, 
+        max: minBudget + (maxBudget - minBudget) * 0.45, 
+        label: 'Smart Choice'
+      },
+      { 
+        min: minBudget + (maxBudget - minBudget) * 0.45, 
         max: minBudget + (maxBudget - minBudget) * 0.6, 
         label: 'Premium Choice'
       },
       { 
         min: minBudget + (maxBudget - minBudget) * 0.6, 
-        max: minBudget + (maxBudget - minBudget) * 0.8, 
+        max: minBudget + (maxBudget - minBudget) * 0.75, 
         label: 'Elite'
       },
       { 
-        min: minBudget + (maxBudget - minBudget) * 0.8, 
+        min: minBudget + (maxBudget - minBudget) * 0.75, 
+        max: minBudget + (maxBudget - minBudget) * 0.85, 
+        label: 'Luxury'
+      },
+      { 
+        min: minBudget + (maxBudget - minBudget) * 0.85, 
+        max: minBudget + (maxBudget - minBudget) * 0.92, 
+        label: 'Premium Elite'
+      },
+      { 
+        min: minBudget + (maxBudget - minBudget) * 0.92, 
         max: maxBudget, 
         label: 'Platinum'
       }
@@ -488,45 +503,65 @@ const RecommendedEvents = () => {
     // Keep track of used products
     let usedProducts = new Set();
 
-    // Filter products based on occasion with more flexible matching
-    const occasionFilteredProducts = products.filter(product => {
-      if (!product.occasions || !Array.isArray(product.occasions)) {
-        // If no occasions specified, include the product
-        return true;
-      }
-
-      const normalizedOccasion = occasion.toLowerCase().trim();
-      
-      // Check if the product's occasions match any mapped occasions
-      for (const [key, mappedOccasions] of Object.entries(occasionMappings)) {
-        if (mappedOccasions.some(mapped => normalizedOccasion.includes(mapped))) {
-          // If the occasion matches any mapping, check if product supports it
-          return product.occasions.some(productOccasion => 
-            mappedOccasions.some(mapped => 
-              productOccasion.toLowerCase().includes(mapped)
-            )
-          );
+    // Filter and prepare products
+    let productsToUse = products;
+    if (products.length > 0) {
+      const occasionFilteredProducts = products.filter(product => {
+        if (!product.occasions || !Array.isArray(product.occasions)) {
+          return true;
         }
+        const normalizedOccasion = occasion.toLowerCase().trim();
+        return product.occasions.some(productOccasion => 
+          productOccasion.toLowerCase().includes(normalizedOccasion)
+        );
+      });
+      productsToUse = occasionFilteredProducts.length > 0 ? occasionFilteredProducts : products;
+    }
+
+    // Generate initial packages
+    let generatedPackages = budgetRanges.map(budgetRange => 
+      createPackageForBudgetRange(productsToUse, budgetRange, eventDetails, eventConfig, usedProducts)
+    ).filter(pkg => pkg !== null);
+
+    // If we have less than 6 packages, generate additional variations
+    if (generatedPackages.length < 6) {
+      const additionalRanges = budgetRanges.map(range => ({
+        ...range,
+        min: range.min * 0.9,
+        max: range.max * 1.1,
+        label: `${range.label} Plus`
+      }));
+
+      const extraPackages = additionalRanges.map(budgetRange =>
+        createPackageForBudgetRange(productsToUse, budgetRange, eventDetails, eventConfig, new Set())
+      ).filter(pkg => pkg !== null);
+
+      generatedPackages = [...generatedPackages, ...extraPackages];
+    }
+
+    // Ensure we have at least 6 packages by creating variations
+    while (generatedPackages.length < 6) {
+      const basePackage = generatedPackages[Math.floor(Math.random() * generatedPackages.length)];
+      if (basePackage) {
+        const variation = {
+          ...basePackage,
+          name: `${basePackage.name} (Variation ${generatedPackages.length + 1})`,
+          price: basePackage.price * (0.9 + Math.random() * 0.2), // ±10% price variation
+          matchScore: Math.max(60, basePackage.matchScore * (0.9 + Math.random() * 0.2))
+        };
+        generatedPackages.push(variation);
       }
+    }
 
-      // If no mapping found, include products that have the exact occasion
-      return product.occasions.some(productOccasion => 
-        productOccasion.toLowerCase().includes(normalizedOccasion)
-      );
-    });
+    // Limit to maximum 11 packages, prioritizing higher match scores
+    if (generatedPackages.length > 11) {
+      generatedPackages = generatedPackages
+        .sort((a, b) => b.matchScore - a.matchScore)
+        .slice(0, 11);
+    }
 
-    // Log the filtering results for debugging
-    console.log('Total products:', products.length);
-    console.log('Filtered products:', occasionFilteredProducts.length);
-    console.log('Current occasion:', occasion);
-    console.log('Filtered products sample:', occasionFilteredProducts.slice(0, 3));
-
-    // If no products match the occasion, use all products
-    const productsToUse = occasionFilteredProducts.length > 0 ? occasionFilteredProducts : products;
-
-    return budgetRanges.map(budgetRange => {
-      return createPackageForBudgetRange(productsToUse, budgetRange, eventDetails, eventConfig, usedProducts);
-    }).filter(pkg => pkg !== null);
+    // Sort by price
+    return generatedPackages.sort((a, b) => a.price - b.price);
   };
 
   const createPackageForBudgetRange = (products, budgetRange, eventDetails, eventConfig, usedProducts) => {
@@ -590,17 +625,17 @@ const RecommendedEvents = () => {
 
     // Only create package if we have enough categories covered
     const requiredCategories = Math.ceil(categories.length * 0.6);
-    const coveredCategories = Object.keys(packageProducts).length;
+      const coveredCategories = Object.keys(packageProducts).length;
     
     console.log('Package coverage:', {
       required: requiredCategories,
       covered: coveredCategories,
       categories: Object.keys(packageProducts)
     });
-
-    if (coveredCategories < requiredCategories) {
-      return null;
-    }
+      
+      if (coveredCategories < requiredCategories) {
+          return null;
+        }
 
     return {
       name: `${budgetRange.label} ${eventDetails.eventType} Package`,
@@ -1018,7 +1053,7 @@ const RecommendedEvents = () => {
         ) : packages.length > 0 ? (
           <div className="flex flex-wrap justify-center -mx-4">
             {[...packages]
-              .sort((a, b) => a.price - b.price)
+        .sort((a, b) => a.price - b.price)
               .map((pkg, index) => (
               <div key={index} 
                 className={`px-4 mb-8 ${
@@ -1030,7 +1065,7 @@ const RecommendedEvents = () => {
                 <div className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 h-full relative mt-6 border border-gray-100">
                   {/* Match Score Tag */}
                   <div className="absolute -top-5 -right-2 bg-gradient-to-r from-yellow-400 to-yellow-500 text-white px-6 py-2 rounded-full text-lg font-bold shadow-xl z-10 transform hover:scale-105 transition-transform duration-200">
-                    {pkg.matchScore}% Match
+                    {Math.round(pkg.matchScore)}% Match
                   </div>
 
                   {/* Package Header */}
