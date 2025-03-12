@@ -523,32 +523,47 @@ const RecommendedEvents = () => {
       createPackageForBudgetRange(productsToUse, budgetRange, eventDetails, eventConfig, usedProducts)
     ).filter(pkg => pkg !== null);
 
-    // If we have less than 6 packages, generate additional variations
-    if (generatedPackages.length < 6) {
-      const additionalRanges = budgetRanges.map(range => ({
-        ...range,
-        min: range.min * 0.9,
-        max: range.max * 1.1,
-        label: `${range.label} Plus`
-      }));
-
-      const extraPackages = additionalRanges.map(budgetRange =>
-        createPackageForBudgetRange(productsToUse, budgetRange, eventDetails, eventConfig, new Set())
-      ).filter(pkg => pkg !== null);
-
-      generatedPackages = [...generatedPackages, ...extraPackages];
-    }
-
-    // Ensure we have at least 6 packages by creating variations
+    // If we have less than 6 packages, generate additional variations with different products
     while (generatedPackages.length < 6) {
       const basePackage = generatedPackages[Math.floor(Math.random() * generatedPackages.length)];
       if (basePackage) {
         const variation = {
           ...basePackage,
           name: `${basePackage.name} (Variation ${generatedPackages.length + 1})`,
-          price: basePackage.price * (0.9 + Math.random() * 0.2), // ±10% price variation
-          matchScore: Math.max(60, basePackage.matchScore * (0.9 + Math.random() * 0.2))
+          categories: {},
+          price: 0,
+          matchScore: 0
         };
+
+        // Try to use different products for each category
+        Object.entries(basePackage.categories).forEach(([category, products]) => {
+          const availableProducts = productsToUse.filter(product => 
+            product.category === category && 
+            !usedProducts.has(product._id) // Ensure the product hasn't been used
+          );
+
+          if (availableProducts.length > 0) {
+            // Select a different product
+            const newProduct = availableProducts[Math.floor(Math.random() * availableProducts.length)];
+            variation.categories[category] = [newProduct];
+            usedProducts.add(newProduct._id); // Mark this product as used
+            variation.price += ['catering', 'rent', 'bakers'].includes(category.toLowerCase())
+              ? (newProduct.price || 0) * eventDetails.guests // Default to 0 if price is undefined
+              : (newProduct.price || 0); // Default to 0 if price is undefined
+          } else {
+            // If no unused products available, use original product
+            variation.categories[category] = products;
+            variation.price += ['catering', 'rent', 'bakers'].includes(category.toLowerCase())
+              ? (products[0].price || 0) * eventDetails.guests // Default to 0 if price is undefined
+              : (products[0].price || 0); // Default to 0 if price is undefined
+          }
+        });
+
+        // Calculate new match score
+        variation.matchScore = Math.max(60, 
+          calculateMatchScore(variation.categories, eventDetails, eventConfig)
+        );
+
         generatedPackages.push(variation);
       }
     }
@@ -564,60 +579,55 @@ const RecommendedEvents = () => {
     return generatedPackages.sort((a, b) => a.price - b.price);
   };
 
+  // Update the createPackageForBudgetRange function to ensure prices are calculated correctly
   const createPackageForBudgetRange = (products, budgetRange, eventDetails, eventConfig, usedProducts) => {
-    if (!products || !eventConfig || !eventConfig.categories || !eventConfig.weights) {
-      console.error('Missing required data:', { products, eventConfig });
-      return null;
-    }
-
-    // Log the event configuration being used
-    console.log('Event config in createPackageForBudgetRange:', eventConfig);
-
-    const { categories, weights } = eventConfig;
+    const { categories } = eventConfig;
     let packageProducts = {};
     let totalCost = 0;
 
-    // Filter products to only include those in the allowed categories for this event type
-    const filteredProducts = products.filter(product => 
-      categories.includes(product.category)
-    );
-
-    console.log('Filtered products by event categories:', 
-      filteredProducts.map(p => p.category),
-      'Allowed categories:', categories
-    );
-
-    // Only use the categories specified in the event config
+    // Sort products by price within each category
+    const categorizedProducts = {};
     categories.forEach(category => {
-      if (!Array.isArray(filteredProducts)) {
-        console.error('Products is not an array:', filteredProducts);
-        return;
-      }
-
-      // Filter products by category, budget, and exclude used products
-      const availableProducts = filteredProducts.filter(product => 
-        product && 
-        product.category === category && // Ensure category matches exactly
-        product.price && 
-        product.price <= (budgetRange.max - totalCost) &&
-        !usedProducts.has(product._id)
+      const categoryProducts = products.filter(p => 
+        p.category === category && !usedProducts.has(p._id)
       );
+      
+      // Sort products by price
+      categorizedProducts[category] = categoryProducts.sort((a, b) => a.price - b.price);
+    });
 
-      console.log(`Available products for ${category}:`, availableProducts.length);
+    // Try to fill each category with appropriate products
+    categories.forEach(category => {
+      const availableProducts = categorizedProducts[category];
 
-      if (availableProducts && availableProducts.length > 0) {
-        const scoredProducts = availableProducts.map(product => ({
-          ...product,
-          totalPrice: ['catering', 'rent'].includes(category.toLowerCase()) 
-            ? (product.price * eventDetails.guests)
-            : product.price,
-          score: calculateProductScore(product, eventDetails, weights[category], budgetRange)
-        })).sort((a, b) => b.score - a.score);
+      if (availableProducts.length > 0) {
+        // Select the first available product that fits the budget
+        const selectedProduct = availableProducts.find(product => {
+          const productCost = ['catering', 'rent', 'bakers'].includes(category.toLowerCase())
+            ? ((product.price || 0) * eventDetails.guests) // Default to 0 if price is undefined
+            : (product.price || 0); // Default to 0 if price is undefined
+          return (totalCost + productCost) <= budgetRange.max; // Check if it fits within the budget
+        });
 
-        const selectedProduct = scoredProducts[0];
         if (selectedProduct) {
-          packageProducts[category] = [selectedProduct];
-          totalCost += selectedProduct.totalPrice;
+          // If the selected product is a rental, select the most suitable variant
+          if (category.toLowerCase() === 'rent' && selectedProduct.rentalVariants && selectedProduct.rentalVariants.length > 0) {
+            // Select the variant based on criteria (e.g., lowest price)
+            const suitableVariant = selectedProduct.rentalVariants.find(variant => {
+              const variantCost = (variant.price || 0) * eventDetails.guests; // Calculate total cost for the variant
+              return (totalCost + variantCost) <= budgetRange.max; // Ensure it fits within the budget
+            });
+
+            if (suitableVariant) {
+              packageProducts[category] = [{ ...selectedProduct, selectedVariant: suitableVariant }];
+              totalCost += (suitableVariant.price || 0) * eventDetails.guests; // Use the variant price
+            }
+          } else {
+            packageProducts[category] = [selectedProduct];
+            totalCost += (['catering', 'rent', 'bakers'].includes(category.toLowerCase())
+              ? (selectedProduct.price || 0) * eventDetails.guests // Default to 0 if price is undefined
+              : (selectedProduct.price || 0)); // Default to 0 if price is undefined
+          }
           usedProducts.add(selectedProduct._id);
         }
       }
@@ -625,20 +635,15 @@ const RecommendedEvents = () => {
 
     // Only create package if we have enough categories covered
     const requiredCategories = Math.ceil(categories.length * 0.6);
-      const coveredCategories = Object.keys(packageProducts).length;
+    const coveredCategories = Object.keys(packageProducts).length;
     
-    console.log('Package coverage:', {
-      required: requiredCategories,
-      covered: coveredCategories,
-      categories: Object.keys(packageProducts)
-    });
-      
-      if (coveredCategories < requiredCategories) {
-          return null;
-        }
+    if (coveredCategories < requiredCategories || totalCost > budgetRange.max) {
+      return null; // Ensure total cost does not exceed budget
+    }
 
+    // Ensure the total cost is correctly calculated
     return {
-      name: `${budgetRange.label} ${eventDetails.eventType} Package`,
+      name: `${budgetRange.label} Package`,
       price: totalCost,
       matchScore: Math.round(calculateMatchScore(packageProducts, eventDetails, eventConfig)),
       categories: packageProducts,
