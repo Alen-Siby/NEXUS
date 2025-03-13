@@ -9,6 +9,7 @@ import { BsCalendarCheck } from 'react-icons/bs';
 import { FiShoppingCart, FiSettings } from 'react-icons/fi';
 import { FaStar, FaStarHalf } from 'react-icons/fa';
 import Context from '../context';
+import displayINRCurrency from '../helpers/displayCurrency';
 
 const RecommendedEvents = () => {
   const location = useLocation();
@@ -500,31 +501,46 @@ const RecommendedEvents = () => {
       }
     ];
 
-    // Keep track of used products
-    let usedProducts = new Set();
-
-    // Filter and prepare products
-    let productsToUse = products;
-    if (products.length > 0) {
-      const occasionFilteredProducts = products.filter(product => {
-        if (!product.occasions || !Array.isArray(product.occasions)) {
-          return true;
-        }
-        const normalizedOccasion = occasion.toLowerCase().trim();
-        return product.occasions.some(productOccasion => 
-          productOccasion.toLowerCase().includes(normalizedOccasion)
-        );
-      });
-      productsToUse = occasionFilteredProducts.length > 0 ? occasionFilteredProducts : products;
-    }
+    // Keep track of used products globally across all packages
+    let globalUsedProducts = new Set();
 
     // Generate initial packages
-    let generatedPackages = budgetRanges.map(budgetRange => 
-      createPackageForBudgetRange(productsToUse, budgetRange, eventDetails, eventConfig, usedProducts)
-    ).filter(pkg => pkg !== null);
+    let generatedPackages = budgetRanges.map(budgetRange => {
+      // Create a new Set for this specific package
+      let packageUsedProducts = new Set([...globalUsedProducts]);
+      
+      const packageData = createPackageForBudgetRange(
+        products, 
+        budgetRange, 
+        eventDetails, 
+        eventConfig, 
+        packageUsedProducts
+      );
+      
+      // If package was created successfully, add its products to global tracking
+      if (packageData) {
+        Object.values(packageData.categories).forEach(categoryProducts => {
+          categoryProducts.forEach(product => {
+            globalUsedProducts.add(product._id);
+          });
+        });
+      }
+      
+      return packageData;
+    }).filter(pkg => pkg !== null);
 
-    // If we have less than 6 packages, generate additional variations with different products
+    // If we have less than 6 packages, generate additional variations
     while (generatedPackages.length < 6) {
+      // Reset global used products tracking for variation generation
+      globalUsedProducts = new Set();
+      generatedPackages.forEach(pkg => {
+        Object.values(pkg.categories).forEach(categoryProducts => {
+          categoryProducts.forEach(product => {
+            globalUsedProducts.add(product._id);
+          });
+        });
+      });
+
       const basePackage = generatedPackages[Math.floor(Math.random() * generatedPackages.length)];
       if (basePackage) {
         const variation = {
@@ -536,26 +552,22 @@ const RecommendedEvents = () => {
         };
 
         // Try to use different products for each category
-        Object.entries(basePackage.categories).forEach(([category, products]) => {
-          const availableProducts = productsToUse.filter(product => 
+        Object.entries(basePackage.categories).forEach(([category, categoryProducts]) => {
+          const availableProducts = products.filter(product => 
             product.category === category && 
-            !usedProducts.has(product._id) // Ensure the product hasn't been used
+            !globalUsedProducts.has(product._id)
           );
 
           if (availableProducts.length > 0) {
-            // Select a different product
             const newProduct = availableProducts[Math.floor(Math.random() * availableProducts.length)];
             variation.categories[category] = [newProduct];
-            usedProducts.add(newProduct._id); // Mark this product as used
+            globalUsedProducts.add(newProduct._id);
             variation.price += ['catering', 'rent', 'bakers'].includes(category.toLowerCase())
-              ? (newProduct.price || 0) * eventDetails.guests // Default to 0 if price is undefined
-              : (newProduct.price || 0); // Default to 0 if price is undefined
+              ? (newProduct.price || 0) * eventDetails.guests
+              : (newProduct.price || 0);
           } else {
-            // If no unused products available, use original product
-            variation.categories[category] = products;
-            variation.price += ['catering', 'rent', 'bakers'].includes(category.toLowerCase())
-              ? (products[0].price || 0) * eventDetails.guests // Default to 0 if price is undefined
-              : (products[0].price || 0); // Default to 0 if price is undefined
+            // If no unused products available, skip this variation
+            return;
           }
         });
 
@@ -581,67 +593,105 @@ const RecommendedEvents = () => {
 
   // Update the createPackageForBudgetRange function to ensure prices are calculated correctly
   const createPackageForBudgetRange = (products, budgetRange, eventDetails, eventConfig, usedProducts) => {
-    const { categories } = eventConfig;
+    const { categories, weights } = eventConfig;
     let packageProducts = {};
     let totalCost = 0;
 
     // Sort products by price within each category
     const categorizedProducts = {};
     categories.forEach(category => {
-      const categoryProducts = products.filter(p => 
+      // Filter out products that have already been used in other packages
+      const availableProducts = products.filter(p => 
         p.category === category && !usedProducts.has(p._id)
       );
       
-      // Sort products by price
-      categorizedProducts[category] = categoryProducts.sort((a, b) => a.price - b.price);
+      // Sort products by price and rating (if available)
+      categorizedProducts[category] = availableProducts.sort((a, b) => {
+        // First sort by price
+        const priceDiff = a.price - b.price;
+        if (priceDiff !== 0) return priceDiff;
+        
+        // If prices are equal, sort by rating (if available)
+        const aRating = a.rating || 0;
+        const bRating = b.rating || 0;
+        return bRating - aRating;
+      });
     });
 
     // Try to fill each category with appropriate products
-    categories.forEach(category => {
+    for (const category of categories) {
       const availableProducts = categorizedProducts[category];
 
       if (availableProducts.length > 0) {
-        // Select the first available product that fits the budget
-        const selectedProduct = availableProducts.find(product => {
-          const productCost = ['catering', 'rent', 'bakers'].includes(category.toLowerCase())
-            ? ((product.price || 0) * eventDetails.guests) // Default to 0 if price is undefined
-            : (product.price || 0); // Default to 0 if price is undefined
-          return (totalCost + productCost) <= budgetRange.max; // Check if it fits within the budget
+        // Find products that fit within the remaining budget
+        const suitableProducts = availableProducts.filter(product => {
+          let productCost;
+          
+          if (category.toLowerCase() === 'rent') {
+            const suitableVariant = product.rentalVariants?.sort((a, b) => a.price - b.price)[0];
+            productCost = suitableVariant ? suitableVariant.price * eventDetails.guests : 0;
+          } else if (category.toLowerCase() === 'bakers') {
+            const suitableVariant = product.bakeryVariants?.find(variant => 
+              variant.servingCapacity >= eventDetails.guests
+            ) || product.bakeryVariants?.sort((a, b) => a.price - b.price)[0];
+            productCost = suitableVariant ? suitableVariant.price : product.price * eventDetails.guests;
+          } else {
+            productCost = ['catering'].includes(category.toLowerCase())
+              ? (product.price || 0) * eventDetails.guests
+              : (product.price || 0);
+          }
+          
+          return (totalCost + productCost) <= budgetRange.max;
         });
 
-        if (selectedProduct) {
-          // If the selected product is a rental, select the most suitable variant
-          if (category.toLowerCase() === 'rent' && selectedProduct.rentalVariants && selectedProduct.rentalVariants.length > 0) {
-            // Select the variant based on criteria (e.g., lowest price)
-            const suitableVariant = selectedProduct.rentalVariants.find(variant => {
-              const variantCost = (variant.price || 0) * eventDetails.guests; // Calculate total cost for the variant
-              return (totalCost + variantCost) <= budgetRange.max; // Ensure it fits within the budget
-            });
+        if (suitableProducts.length > 0) {
+          // Select a random product from suitable ones to increase variety
+          const randomIndex = Math.floor(Math.random() * Math.min(3, suitableProducts.length));
+          const selectedProduct = suitableProducts[randomIndex];
 
+          if (category.toLowerCase() === 'rent') {
+            const suitableVariant = selectedProduct.rentalVariants?.sort((a, b) => a.price - b.price)[0];
             if (suitableVariant) {
-              packageProducts[category] = [{ ...selectedProduct, selectedVariant: suitableVariant }];
-              totalCost += (suitableVariant.price || 0) * eventDetails.guests; // Use the variant price
+              packageProducts[category] = [{
+                ...selectedProduct,
+                selectedVariant: suitableVariant,
+                effectivePrice: suitableVariant.price
+              }];
+              totalCost += suitableVariant.price * eventDetails.guests;
+            }
+          } else if (category.toLowerCase() === 'bakers') {
+            const suitableVariant = selectedProduct.bakeryVariants?.find(variant => 
+              variant.servingCapacity >= eventDetails.guests
+            ) || selectedProduct.bakeryVariants?.sort((a, b) => a.price - b.price)[0];
+            if (suitableVariant) {
+              packageProducts[category] = [{
+                ...selectedProduct,
+                selectedVariant: suitableVariant,
+                effectivePrice: suitableVariant.price
+              }];
+              totalCost += suitableVariant.price;
             }
           } else {
             packageProducts[category] = [selectedProduct];
-            totalCost += (['catering', 'rent', 'bakers'].includes(category.toLowerCase())
-              ? (selectedProduct.price || 0) * eventDetails.guests // Default to 0 if price is undefined
-              : (selectedProduct.price || 0)); // Default to 0 if price is undefined
+            totalCost += ['catering'].includes(category.toLowerCase())
+              ? (selectedProduct.price || 0) * eventDetails.guests
+              : (selectedProduct.price || 0);
           }
+          
+          // Mark this product as used
           usedProducts.add(selectedProduct._id);
         }
       }
-    });
+    }
 
     // Only create package if we have enough categories covered
     const requiredCategories = Math.ceil(categories.length * 0.6);
     const coveredCategories = Object.keys(packageProducts).length;
     
     if (coveredCategories < requiredCategories || totalCost > budgetRange.max) {
-      return null; // Ensure total cost does not exceed budget
+      return null;
     }
 
-    // Ensure the total cost is correctly calculated
     return {
       name: `${budgetRange.label} Package`,
       price: totalCost,
@@ -860,6 +910,18 @@ const RecommendedEvents = () => {
   useEffect(() => {
     fetchCategories();
   }, []);
+
+  // Add this function before the return statement in RecommendedEvents component
+  const calculateTotalCost = (product, category) => {
+    if (category.toLowerCase() === 'rent' && product.selectedVariant) {
+      return product.selectedVariant.price * eventDetails.guests;
+    } else if (category.toLowerCase() === 'bakers' && product.selectedVariant) {
+      return product.selectedVariant.price;
+    } else if (category.toLowerCase() === 'catering') {
+      return (product.price || 0) * eventDetails.guests;
+    }
+    return product.price || 0;
+  };
 
   if (!eventDetails) {
     return <div className="text-center p-8">No event details available</div>;
@@ -1157,19 +1219,40 @@ const RecommendedEvents = () => {
                                     <h5 className="text-lg font-semibold text-gray-800 hover:text-blue-600 transition-colors">
                                       {product.productName}
                                     </h5>
-                                    {['catering', 'rent', 'bakers'].includes(category.toLowerCase()) ? (
+                                    {category.toLowerCase() === 'rent' && product.selectedVariant ? (
                                       <div className="flex flex-col items-end">
                                         <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-semibold mb-1">
-                                          ₹{product.price?.toLocaleString() || 'Price varies'} per person
+                                          ₹{product.selectedVariant.price?.toLocaleString()} per person
                                         </span>
                                         <span className="text-sm text-gray-600">
-                                          Total: ₹{((product.price || 0) * editedDetails.guests).toLocaleString()}
-                                          <span className="text-xs ml-1">({editedDetails.guests} guests)</span>
+                                          Total: ₹{(product.selectedVariant.price * eventDetails.guests).toLocaleString()}
+                                          <span className="text-xs ml-1">({eventDetails.guests} guests)</span>
+                                        </span>
+                                      </div>
+                                    ) : category.toLowerCase() === 'bakers' && product.selectedVariant ? (
+                                      <div className="flex flex-col items-end">
+                                        <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-semibold">
+                                          ₹{product.selectedVariant.price?.toLocaleString()}
+                                        </span>
+                                        <span className="text-xs text-gray-600">
+                                          Serves {product.selectedVariant.servingCapacity} guests
+                                        </span>
+                                      </div>
+                                    ) : ['catering'].includes(category.toLowerCase()) ? (
+                                      <div className="flex flex-col items-end">
+                                        <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-semibold mb-1">
+                                          ₹{product.price?.toLocaleString()} per guest
+                                        </span>
+                                        <span className="text-sm text-gray-600">
+                                          Total for {eventDetails.guests} guests:{' '}
+                                          <span className="font-bold text-red-600">
+                                            ₹{calculateTotalCost(product, category).toLocaleString()}
+                                          </span>
                                         </span>
                                       </div>
                                     ) : (
                                       <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-semibold">
-                                        ₹{product.price?.toLocaleString() || 'Price varies'}
+                                        ₹{product.price?.toLocaleString()}
                                       </span>
                                     )}
                                   </div>
@@ -1575,6 +1658,23 @@ const CustomizePackageModal = ({ isOpen, onClose, packageData, ratings, eventDet
       console.error('Error in add to cart process:', error);
       toast.error('Failed to complete adding items to cart');
     }
+  };
+
+  // Function to get price range for bakery items
+  const getBakeryPriceRange = (product) => {
+    if (!product.bakeryVariants || product.bakeryVariants.length === 0) {
+      return "Price not available";
+    }
+
+    const prices = product.bakeryVariants.map(item => item.price);
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+
+    if (minPrice === maxPrice) {
+      return displayINRCurrency(minPrice);
+    }
+
+    return `${displayINRCurrency(minPrice)} - ${displayINRCurrency(maxPrice)}`;
   };
 
   return (
