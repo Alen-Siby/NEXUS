@@ -745,9 +745,27 @@ const Cart = () => {
     return null;
   };
 
-  // Update the renderCateringDetails function
+  // Updated renderCateringDetails function to handle both configuration formats
   const renderCateringDetails = (product) => {
     if (product.productId.category.toLowerCase() === 'catering') {
+      // Debug log to see what data we're working with
+      console.log("Catering product data:", {
+        productId: product.productId._id,
+        configuration: product.configuration,
+        catering: product.productId.catering
+      });
+      
+      // Map course types to course names for display
+      const courseTypeToName = {
+        'horsOeuvre': 'Appetizer',
+        'mainCourse': 'Main Course',
+        'dessert': 'Dessert',
+        'soup': 'Soup',
+        'salad': 'Salad',
+        'beverage': 'Beverage',
+        'starter': 'Starter'
+      };
+      
       return (
         <div className="mt-2">
           <button
@@ -762,107 +780,90 @@ const Cart = () => {
               <div className="text-sm font-medium text-gray-700 mb-2">
                 Selected Menu Configuration:
               </div>
+              
               {product.configuration && (
-                <div className="space-y-3">
-                  {/* Appetizers/Hors d'Oeuvre */}
-                  {product.configuration.horsOeuvre && product.configuration.horsOeuvre.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700">Appetizers:</h4>
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        {product.configuration.horsOeuvre.map((item, idx) => (
-                          <span key={idx} className={`${courseColors['Appetizer']} px-3 py-1 rounded-full text-sm`}>
-                            {item}
-                          </span>
-                        ))}
+                <div className="space-y-4">
+                  {/* Handle both configuration formats */}
+                  {Object.entries(product.configuration).map(([key, dishes]) => {
+                    // Skip empty arrays
+                    if (!dishes || (Array.isArray(dishes) && dishes.length === 0)) return null;
+                    
+                    // Determine if this is a course type or course name
+                    const isCourseName = ['Appetizer', 'Main Course', 'Dessert', 'Soup', 'Salad', 'Beverage', 'Starter'].includes(key);
+                    const courseName = isCourseName ? key : courseTypeToName[key] || key;
+                    
+                    // Get the appropriate color class
+                    const colorClass = courseColors[courseName] || 'bg-gray-100 text-gray-800';
+                    
+                    return (
+                      <div key={key} className="border-b pb-3">
+                        <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                          <span className={`w-2 h-2 rounded-full ${colorClass.replace('bg-', 'bg-').replace('text-', '')} mr-2`}></span>
+                          {courseName}
+                        </h4>
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {Array.isArray(dishes) 
+                            ? dishes.map((dish, idx) => (
+                                <span key={idx} className={`${colorClass} px-3 py-1 rounded-full text-sm`}>
+                                  {dish}
+                                </span>
+                              ))
+                            : (
+                                <span className={`${colorClass} px-3 py-1 rounded-full text-sm`}>
+                                  {dishes}
+                                </span>
+                              )
+                          }
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  
-                  {/* Main Course */}
-                  {product.configuration.mainCourse && product.configuration.mainCourse.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700">Main Course:</h4>
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        {product.configuration.mainCourse.map((item, idx) => (
-                          <span key={idx} className={`${courseColors['Main Course']} px-3 py-1 rounded-full text-sm`}>
-                            {item}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Dessert */}
-                  {product.configuration.dessert && product.configuration.dessert.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700">Desserts:</h4>
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        {product.configuration.dessert.map((item, idx) => (
-                          <span key={idx} className={`${courseColors['Dessert']} px-3 py-1 rounded-full text-sm`}>
-                            {item}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Soup */}
-                  {product.configuration.soup && product.configuration.soup.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700">Soups:</h4>
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        {product.configuration.soup.map((item, idx) => (
-                          <span key={idx} className={`${courseColors['Soup']} px-3 py-1 rounded-full text-sm`}>
-                            {item}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Salad */}
-                  {product.configuration.salad && product.configuration.salad.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700">Salads:</h4>
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        {product.configuration.salad.map((item, idx) => (
-                          <span key={idx} className={`${courseColors['Salad']} px-3 py-1 rounded-full text-sm`}>
-                            {item}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Beverage */}
-                  {product.configuration.beverage && product.configuration.beverage.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700">Beverages:</h4>
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        {product.configuration.beverage.map((item, idx) => (
-                          <span key={idx} className={`${courseColors['Beverage']} px-3 py-1 rounded-full text-sm`}>
-                            {item}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Starter */}
-                  {product.configuration.starter && product.configuration.starter.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700">Starters:</h4>
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        {product.configuration.starter.map((item, idx) => (
-                          <span key={idx} className={`${courseColors['Starter']} px-3 py-1 rounded-full text-sm`}>
-                            {item}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                    );
+                  })}
                 </div>
               )}
+              
+              {/* Additional details section */}
+              <div className="mt-4 bg-gray-50 p-3 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-600">Serving Size:</span>
+                  <span className="text-sm font-semibold">{product.quantity} guests</span>
+                </div>
+                
+                {product.productId.catering?.dietaryOptions && (
+                  <div className="mt-2">
+                    <span className="text-sm font-medium text-gray-600">Dietary Options:</span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {product.productId.catering.dietaryOptions.map((option, idx) => (
+                        <span key={idx} className="bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs">
+                          {option}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {product.productId.catering?.specialInstructions && (
+                  <div className="mt-2">
+                    <span className="text-sm font-medium text-gray-600">Special Instructions:</span>
+                    <p className="text-sm text-gray-700 mt-1">{product.productId.catering.specialInstructions}</p>
+                  </div>
+                )}
+                
+                {/* Price per guest */}
+                <div className="mt-2 pt-2 border-t border-gray-200">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-600">Price per guest:</span>
+                    <span className="text-sm font-semibold text-green-600">
+                      ₹{product.productId.price}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center mt-1">
+                    <span className="text-sm font-medium text-gray-600">Total:</span>
+                    <span className="text-sm font-semibold text-green-600">
+                      ₹{product.productId.price * product.quantity}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>

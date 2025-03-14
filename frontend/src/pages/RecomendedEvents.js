@@ -1579,7 +1579,8 @@ const CustomizePackageModal = ({ isOpen, onClose, packageData, ratings, eventDet
               if (!configuration) {
                 toast.error(`Please configure menu for ${product.productName}`);
                 setIsConfigModalOpen(true);
-                continue;
+                setCurrentProduct(product);
+                return;
               }
 
               // Log configuration being sent
@@ -1589,6 +1590,7 @@ const CustomizePackageModal = ({ isOpen, onClose, packageData, ratings, eventDet
                 configuration
               });
 
+              // Use the dedicated API endpoint for catering configuration
               response = await fetch(SummaryApi.addToCartWithConfig.url, {
                 method: SummaryApi.addToCartWithConfig.method,
                 headers: { 'Content-Type': 'application/json' },
@@ -1683,6 +1685,7 @@ const CustomizePackageModal = ({ isOpen, onClose, packageData, ratings, eventDet
                 })
               });
             } else {
+              // For regular products, use the standard add to cart endpoint
               response = await fetch(SummaryApi.addToCartProduct.url, {
                 method: SummaryApi.addToCartProduct.method,
                 headers: { 'Content-Type': 'application/json' },

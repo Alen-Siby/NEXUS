@@ -413,6 +413,15 @@ const ProductDetails = () => {
         } else {
           toast.error(responseData.message || 'Failed to add bakery items to cart');
         }
+      } else if (data.category.toLowerCase() === 'catering') {
+        // Handle catering products with configuration
+        if (!currentConfiguration) {
+          toast.error('Please configure your catering preferences before adding to cart');
+          return;
+        }
+        
+        // Use the dedicated function for catering configuration
+        await addToCartWithConfig(params.id, quantity, currentConfiguration);
       } else if (data.category.toLowerCase() === 'rent') {
         if (!selectedRentalVariant) {
           toast.error('Please select a rental variant');
