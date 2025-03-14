@@ -288,11 +288,17 @@ const ProductDetails = () => {
     }
   };
 
-  // Handle bakery item quantity change
+  // Handle bakery item quantity change with max limit
   const handleBakeryQuantityChange = (itemId, quantity) => {
+    const item = data?.bakeryVariants?.find(variant => variant._id === itemId);
+    const maxQuantity = item?.servingCapacity || 10;
+    
+    // Ensure quantity is within bounds (0 to maxQuantity)
+    const validQuantity = Math.min(maxQuantity, Math.max(0, parseInt(quantity) || 0));
+    
     setBakeryConfig(prev => ({
       ...prev,
-      [itemId]: Math.max(0, parseInt(quantity) || 0)
+      [itemId]: validQuantity
     }));
   };
 
@@ -1001,26 +1007,49 @@ const ProductDetails = () => {
                       )}
                     </div>
 
-                    {/* Configuration Status */}
+                    {/* Configuration Status - Improved Preview */}
                     {currentBakeryConfiguration && (
                       <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                        <div className="flex items-center gap-2 text-green-600">
+                        <div className="flex items-center gap-2 text-green-600 mb-3">
                           <FaCheckCircle className="w-5 h-5" />
                           <span className="font-medium">Configuration Saved</span>
                         </div>
-                        <div className="mt-2 space-y-1">
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           {Object.entries(currentBakeryConfiguration).map(([itemId, quantity]) => {
                             const item = data.bakeryVariants.find(v => v._id === itemId);
                             if (item && quantity > 0) {
                               return (
-                                <div key={itemId} className="text-sm text-gray-600 flex justify-between">
-                                  <span>{item.itemName}</span>
-                                  <span>Quantity: {quantity}</span>
+                                <div key={itemId} className="flex items-center gap-3 bg-white p-2 rounded-md shadow-sm">
+                                  <div className="w-12 h-12 rounded-md overflow-hidden bg-gray-100">
+                                    <img 
+                                      src={item.images?.[0] || ''} 
+                                      alt={item.itemName}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className="font-medium text-sm text-gray-800">{item.itemName}</div>
+                                    <div className="flex justify-between text-xs text-gray-600">
+                                      <span>Qty: {quantity}</span>
+                                      <span>₹{item.price * quantity}</span>
+                                    </div>
+                                  </div>
                                 </div>
                               );
                             }
                             return null;
                           })}
+                        </div>
+                        
+                        <div className="mt-3 pt-3 border-t border-green-200 flex justify-between items-center">
+                          <span className="text-sm font-medium text-gray-700">Total Amount:</span>
+                          <span className="font-bold text-green-700">
+                            ₹{Object.entries(currentBakeryConfiguration).reduce((total, [itemId, quantity]) => {
+                              const item = data?.bakeryVariants?.find(variant => variant._id === itemId);
+                              return total + (item ? item.price * quantity : 0);
+                            }, 0)}
+                          </span>
                         </div>
                       </div>
                     )}
@@ -1299,41 +1328,145 @@ const ProductDetails = () => {
         {/* Add Bakery Configuration Modal */}
         {isBakeryConfigModalOpen && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
-              <h3 className="text-xl font-semibold mb-4">Select Bakery Items</h3>
+            <div className="bg-white rounded-lg p-6 w-full max-w-3xl max-h-[80vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-2xl font-semibold text-gray-800">Configure Your Bakery Order</h3>
+                <button 
+                  onClick={() => setIsBakeryConfigModalOpen(false)}
+                  className="text-gray-500 hover:text-gray-700 text-xl"
+                >
+                  ×
+                </button>
+              </div>
               
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {data?.bakeryVariants?.map((item) => (
-                  <div key={item._id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div>
-                      <h4 className="font-medium">{item.itemName}</h4>
-                      <p className="text-sm text-gray-600">Serves: {item.servingCapacity}</p>
-                      <p className="text-sm font-medium text-green-600">₹{item.price}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <label className="text-sm">Quantity:</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={bakeryConfig[item._id] || 0}
-                        onChange={(e) => handleBakeryQuantityChange(item._id, e.target.value)}
-                        className="w-20 p-2 border rounded"
+                  <div key={item._id} className="flex flex-col border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                    {/* Item Image */}
+                    <div className="h-48 overflow-hidden bg-gray-100">
+                      <img 
+                        src={item.images?.[0] || ''} 
+                        alt={item.itemName}
+                        className="w-full h-full object-cover"
                       />
+                    </div>
+                    
+                    {/* Item Details */}
+                    <div className="p-4 flex flex-col flex-grow">
+                      <h4 className="font-medium text-lg">{item.itemName}</h4>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                          Serves: {item.servingCapacity}
+                        </span>
+                        <span className="font-medium text-green-600">₹{item.price}</span>
+                      </div>
+                      
+                      {/* Description if available */}
+                      {item.description && (
+                        <p className="text-sm text-gray-600 mt-2 line-clamp-2">{item.description}</p>
+                      )}
+                      
+                      {/* Quantity Selector */}
+                      <div className="mt-auto pt-4 flex items-center justify-between">
+                        <label className="text-sm font-medium text-gray-700">Quantity:</label>
+                        <div className="flex items-center border border-gray-300 rounded overflow-hidden">
+                          <button
+                            onClick={() => handleBakeryQuantityChange(item._id, (bakeryConfig[item._id] || 0) - 1)}
+                            className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700"
+                          >
+                            -
+                          </button>
+                          <input
+                            type="number"
+                            min="0"
+                            max={item.servingCapacity}
+                            value={bakeryConfig[item._id] || 0}
+                            onChange={(e) => handleBakeryQuantityChange(item._id, e.target.value)}
+                            className="w-14 p-1 text-center border-x border-gray-300"
+                          />
+                          <button
+                            onClick={() => handleBakeryQuantityChange(item._id, (bakeryConfig[item._id] || 0) + 1)}
+                            className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                      
+                      {/* Max Capacity Warning */}
+                      {(bakeryConfig[item._id] || 0) >= item.servingCapacity && (
+                        <p className="text-xs text-amber-600 mt-1 text-right">
+                          Max capacity reached
+                        </p>
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
 
+              {/* Order Summary */}
+              <div className="mt-8 border-t border-gray-200 pt-6">
+                <h4 className="font-medium text-lg mb-4">Order Summary</h4>
+                
+                {Object.entries(bakeryConfig).some(([_, qty]) => qty > 0) ? (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="space-y-4">
+                      {Object.entries(bakeryConfig).map(([itemId, quantity]) => {
+                        const item = data?.bakeryVariants?.find(variant => variant._id === itemId);
+                        if (item && quantity > 0) {
+                          return (
+                            <div key={itemId} className="flex items-center gap-4">
+                              <div className="w-16 h-16 rounded-md overflow-hidden bg-white border">
+                                <img 
+                                  src={item.images?.[0] || ''} 
+                                  alt={item.itemName}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                              <div className="flex-1">
+                                <h5 className="font-medium">{item.itemName}</h5>
+                                <div className="flex justify-between text-sm text-gray-600">
+                                  <span>Quantity: {quantity}</span>
+                                  <span>₹{item.price * quantity}</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })}
+                    </div>
+                    
+                    {/* Total Price */}
+                    <div className="flex justify-between items-center mt-6 pt-4 border-t border-gray-200">
+                      <span className="font-medium">Total:</span>
+                      <span className="font-bold text-green-600">
+                        ₹{Object.entries(bakeryConfig).reduce((total, [itemId, quantity]) => {
+                          const item = data?.bakeryVariants?.find(variant => variant._id === itemId);
+                          return total + (item ? item.price * quantity : 0);
+                        }, 0)}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 bg-gray-50 rounded-lg">
+                    <p className="text-gray-500">No items selected yet</p>
+                    <p className="text-sm text-gray-400 mt-1">Select quantities for the items you want to order</p>
+                  </div>
+                )}
+              </div>
+
               <div className="flex justify-end gap-4 mt-6">
                 <button
                   onClick={() => setIsBakeryConfigModalOpen(false)}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleBakeryConfigurationSave}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                  disabled={!Object.values(bakeryConfig).some(qty => qty > 0)}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
                 >
                   Save Configuration
                 </button>

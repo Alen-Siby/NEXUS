@@ -1363,10 +1363,11 @@ const CustomizePackageModal = ({ isOpen, onClose, packageData, ratings, eventDet
   const [ratingStats, setRatingStats] = useState({});
 
   // Add new state for bakery configuration
-  const [isBakeryConfigModalOpen, setIsBakeryConfigModalOpen] = useState(false);
   const [bakeryConfig, setBakeryConfig] = useState({});
-  const [currentBakeryConfiguration, setCurrentBakeryConfiguration] = useState({});
+  const [isBakeryConfigModalOpen, setIsBakeryConfigModalOpen] = useState(false);
   const [currentBakeryProduct, setCurrentBakeryProduct] = useState(null);
+  const [configuredBakeryItems, setConfiguredBakeryItems] = useState({});
+  const [currentBakeryConfiguration, setCurrentBakeryConfiguration] = useState(null);
 
   const handleMouseMove = (e) => {
     const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
@@ -1436,22 +1437,25 @@ const CustomizePackageModal = ({ isOpen, onClose, packageData, ratings, eventDet
 
   // Get current images for a product
   const getCurrentImages = (product) => {
-    if (product.category === 'rent' && variantImages[product._id]) {
+    // If we have variant-specific images for this product, use those
+    if (variantImages[product._id] && variantImages[product._id].length > 0) {
       return variantImages[product._id];
     }
+    // Otherwise fall back to product's default images
     return product.productImage || [];
   };
 
-  // Helper function to calculate total cost
+  // Helper function to calculate total cost - Updated for bakery items
   const calculateTotalCost = (product, category) => {
-    if (['catering', 'rent', 'bakers'].includes(category.toLowerCase())) {
-      const basePrice = category.toLowerCase() === 'rent' && selectedVariants[product._id] 
-        ? selectedVariants[product._id].price 
-        : product.price;
-      
-      return basePrice * eventDetails.guests;
+    if (category.toLowerCase() === 'rent' && selectedVariants[product._id]) {
+      return selectedVariants[product._id].price * eventDetails.guests;
+    } else if (category.toLowerCase() === 'bakers' && selectedVariants[product._id]) {
+      // For bakery items, we don't multiply by guests since bakery items have serving capacity
+      return selectedVariants[product._id].price;
+    } else if (category.toLowerCase() === 'catering') {
+      return (product.price || 0) * eventDetails.guests;
     }
-    return product.price;
+    return product.price || 0;
   };
 
   // Fetch ratings for all products
@@ -1607,9 +1611,13 @@ const CustomizePackageModal = ({ isOpen, onClose, packageData, ratings, eventDet
               console.log('Sending rental variant:', {
                 productId: product._id,
                 quantity: eventDetails.guests,
-                variantId: selectedVariant._id,
-                variantName: selectedVariant.itemName,
-                variantPrice: selectedVariant.price
+                rentalVariant: {
+                  variantId: selectedVariant._id,
+                  variantName: selectedVariant.itemName,
+                  variantPrice: selectedVariant.price,
+                  duration: selectedVariant.duration || 1,
+                  images: selectedVariant.images || []
+                }
               });
 
               response = await fetch(SummaryApi.addToCartWithVariant.url, {
@@ -1619,15 +1627,25 @@ const CustomizePackageModal = ({ isOpen, onClose, packageData, ratings, eventDet
                 body: JSON.stringify({
                   productId: product._id,
                   quantity: eventDetails.guests,
-                  variantId: selectedVariant._id,
-                  variantName: selectedVariant.itemName,
-                  variantPrice: selectedVariant.price
+                  rentalVariant: {
+                    variantId: selectedVariant._id,
+                    variantName: selectedVariant.itemName,
+                    variantPrice: selectedVariant.price,
+                    duration: selectedVariant.duration || 1,
+                    images: selectedVariant.images || []
+                  }
                 })
               });
             } else if (category.toLowerCase() === 'bakers') {
-              // Check if configuration exists
-              const configuration = currentBakeryConfiguration[product._id];
+              // Check if variant is selected
+              const selectedVariant = selectedVariants[product._id];
+              if (!selectedVariant) {
+                toast.error(`Please select a variant for ${product.productName}`);
+                continue;
+              }
               
+              // Check if configuration exists
+              const configuration = configuredBakeryItems[product._id];
               if (!configuration) {
                 toast.error(`Please configure bakery items for ${product.productName}`);
                 handleConfigureBakery(product);
@@ -1645,7 +1663,7 @@ const CustomizePackageModal = ({ isOpen, onClose, packageData, ratings, eventDet
               // Log configuration being sent
               console.log('Sending bakery configuration:', {
                 productId: product._id,
-                selectedVariant: product.selectedVariant,
+                selectedVariant: selectedVariant,
                 configuration
               });
               
@@ -1658,8 +1676,8 @@ const CustomizePackageModal = ({ isOpen, onClose, packageData, ratings, eventDet
                 body: JSON.stringify({
                   productId: product._id,
                   selectedVariant: {
-                    ...product.selectedVariant,
-                    servingCapacity: product.selectedVariant.servingCapacity
+                    ...selectedVariant,
+                    servingCapacity: selectedVariant.servingCapacity
                   },
                   configuration
                 })
@@ -1732,13 +1750,16 @@ const CustomizePackageModal = ({ isOpen, onClose, packageData, ratings, eventDet
     }
     
     // Save configuration to state
-    const updatedConfigs = {
-      ...currentBakeryConfiguration,
+    setConfiguredBakeryItems(prev => ({
+      ...prev,
       [currentBakeryProduct._id]: bakeryConfig
-    };
+    }));
     
-    setCurrentBakeryConfiguration(updatedConfigs);
-    localStorage.setItem('bakeryConfigurations', JSON.stringify(updatedConfigs));
+    // Also save to currentBakeryConfiguration for consistency
+    setCurrentBakeryConfiguration({
+      productId: currentBakeryProduct._id,
+      items: bakeryConfig
+    });
     
     console.log('Bakery Configuration Saved:', bakeryConfig);
     toast.success('Bakery configuration saved!');
@@ -1748,15 +1769,8 @@ const CustomizePackageModal = ({ isOpen, onClose, packageData, ratings, eventDet
   // Configure bakery items
   const handleConfigureBakery = (product) => {
     setCurrentBakeryProduct(product);
-    
-    // Initialize with existing configuration if available
-    if (currentBakeryConfiguration[product._id]) {
-      setBakeryConfig(currentBakeryConfiguration[product._id]);
-    } else {
-      // Reset configuration
-      setBakeryConfig({});
-    }
-    
+    // Initialize with existing configuration or empty
+    setBakeryConfig(configuredBakeryItems[product._id] || {});
     setIsBakeryConfigModalOpen(true);
   };
 
@@ -1801,33 +1815,57 @@ const CustomizePackageModal = ({ isOpen, onClose, packageData, ratings, eventDet
                       <div className="flex-1">
                         <div className="relative">
                           {/* Main Image Container */}
-                          <div className="w-full h-[300px] rounded-2xl overflow-hidden bg-gray-50">
-                            <img
-                              src={getCurrentImages(product)[activeImageIndices[product._id] || 0]}
-                              className="w-full h-full object-contain p-4"
-                              alt={product.productName}
-                            />
-                          </div>
+                          <div className="relative">
+                            {/* Main Image Container */}
+                            <div 
+                              className="w-full h-[300px] rounded-2xl overflow-hidden bg-gray-50 relative cursor-crosshair"
+                              onMouseEnter={() => setShowMagnifier(true)}
+                              onMouseLeave={() => setShowMagnifier(false)}
+                              onMouseMove={handleMouseMove}
+                            >
+                              <img
+                                src={getCurrentImages(product)[activeImageIndices[product._id] || 0]}
+                                className="w-full h-full object-contain p-4"
+                                alt={product.productName}
+                              />
+                            </div>
 
-                          {/* Thumbnail Images */}
-                          <div className="flex gap-3 overflow-x-auto mt-4 pb-2">
-                            {getCurrentImages(product).map((imgURL, index) => (
-                              <button
-                                key={index}
-                                onMouseEnter={() => handleImageHover(product._id, index)}
-                                className={`flex-none w-[60px] h-[60px] rounded-lg overflow-hidden 
-                                  ${activeImageIndices[product._id] === index 
-                                    ? 'ring-2 ring-red-600 ring-offset-2' 
-                                    : 'hover:ring-2 hover:ring-gray-300 hover:ring-offset-1'
-                                  } transition-all duration-200`}
-                              >
-                                <img
-                                  src={imgURL}
-                                  className="w-full h-full object-contain p-2"
-                                  alt={`Thumbnail ${index}`}
+                            {/* Magnified Preview */}
+                            {showMagnifier && (
+                              <div className="absolute top-0 -right-[320px] w-[300px] h-[300px] border-2 border-gray-200 rounded-2xl overflow-hidden bg-white shadow-xl pointer-events-none">
+                                <div
+                                  style={{
+                                    backgroundImage: `url(${getCurrentImages(product)[activeImageIndices[product._id] || 0]})`,
+                                    backgroundPosition: `${magnifierPosition.x}% ${magnifierPosition.y}%`,
+                                    backgroundRepeat: 'no-repeat',
+                                    backgroundSize: '250%',
+                                    width: '100%',
+                                    height: '100%'
+                                  }}
                                 />
-                              </button>
-                            ))}
+                              </div>
+                            )}
+
+                            {/* Thumbnail Images */}
+                            <div className="flex gap-3 overflow-x-auto mt-4 pb-2">
+                              {getCurrentImages(product).map((imgURL, index) => (
+                                <button
+                                  key={index}
+                                  onMouseEnter={() => handleImageHover(product._id, index)}
+                                  className={`flex-none w-[60px] h-[60px] rounded-lg overflow-hidden 
+                                    ${activeImageIndices[product._id] === index 
+                                      ? 'ring-2 ring-red-600 ring-offset-2' 
+                                      : 'hover:ring-2 hover:ring-gray-300 hover:ring-offset-1'
+                                    } transition-all duration-200`}
+                                >
+                                  <img
+                                    src={imgURL}
+                                    className="w-full h-full object-contain p-2"
+                                    alt={`Thumbnail ${index}`}
+                                  />
+                                </button>
+                              ))}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1887,76 +1925,142 @@ const CustomizePackageModal = ({ isOpen, onClose, packageData, ratings, eventDet
                           </div>
                         )}
 
-                        {/* Bakery Variants Section */}
+                        {/* Bakery Variants Section - Updated */}
                         {category.toLowerCase() === 'bakers' && product.bakeryVariants && (
                           <div className="mb-6">
-                            <h4 className="text-lg font-medium text-gray-900 mb-3">Available Items:</h4>
-                            <div className="grid grid-cols-1 gap-4">
-                              {product.selectedVariant && (
-                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                                  <div className="flex items-start gap-3">
+                            <h4 className="text-lg font-medium text-gray-900 mb-3">Select Size & Type:</h4>
+                            <div className="space-y-4">
+                              {product.bakeryVariants.map((variant, index) => (
+                                <div 
+                                  key={index} 
+                                  onClick={() => {
+                                    // Update selected variant
+                                    const updatedVariants = {
+                                      ...selectedVariants,
+                                      [product._id]: variant
+                                    };
+                                    setSelectedVariants(updatedVariants);
+                                    localStorage.setItem('selectedVariants', JSON.stringify(updatedVariants));
+                                    
+                                    // Update image preview when variant is selected
+                                    if (variant.images && variant.images.length > 0) {
+                                      setVariantImages(prev => ({
+                                        ...prev,
+                                        [product._id]: variant.images
+                                      }));
+                                      
+                                      // Reset to first image in the new set
+                                      setActiveImageIndices(prev => ({
+                                        ...prev,
+                                        [product._id]: 0
+                                      }));
+                                    }
+                                  }}
+                                  className={`flex items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors cursor-pointer
+                                    ${selectedVariants[product._id]?._id === variant._id 
+                                      ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500 ring-opacity-50' 
+                                      : 'border-gray-200 hover:border-blue-300'}`}
+                                >
+                                  <div className="flex items-start gap-4 flex-1">
+                                    {variant.images && variant.images[0] && (
+                                      <img 
+                                        src={variant.images[0]} 
+                                        alt={variant.itemName} 
+                                        className="w-16 h-16 object-cover rounded-md"
+                                      />
+                                    )}
                                     <div>
-                                      <h4 className="font-medium text-gray-900">{product.selectedVariant.itemName}</h4>
-                                      <p className="text-sm text-gray-600">Serves: {product.selectedVariant.servingCapacity}</p>
-                                      <p className="text-sm font-semibold text-green-600 mt-1">
-                                        ₹{product.selectedVariant.price?.toLocaleString()}
-                                      </p>
+                                      <h4 className="font-medium text-gray-800">{variant.itemName}</h4>
+                                      <p className="text-sm text-gray-600">Serves: {variant.servingCapacity}</p>
+                                      <p className="text-sm font-medium text-green-600 mt-1">₹{variant.price?.toLocaleString()}</p>
+                                    </div>
+                                  </div>
+                                  {selectedVariants[product._id]?._id === variant._id && (
+                                    <div className="ml-auto">
+                                      <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                      </svg>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                            
+                            {/* Configuration Buttons - Similar to ProductDetails.js */}
+                            <div className="flex flex-wrap gap-4 mt-6">
+                              <button
+                                onClick={() => handleConfigureBakery(product)}
+                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg 
+                                  hover:bg-blue-700 transition-colors"
+                              >
+                                <FiSettings className="w-5 h-5" />
+                                Configure Order
+                              </button>
+
+                              {configuredBakeryItems[product._id] && (
+                                <button
+                                  onClick={() => handleConfigureBakery(product)}
+                                  className="flex items-center gap-2 px-4 py-2 border border-green-500 text-green-600 
+                                    rounded-lg hover:bg-green-50 transition-colors"
+                                >
+                                  <FaCheckCircle className="w-5 h-5" />
+                                  Edit Configuration
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Configuration Status */}
+                            {configuredBakeryItems[product._id] && (
+                              <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                                <div className="flex items-center gap-2 text-green-600">
+                                  <FaCheckCircle className="w-5 h-5" />
+                                  <span className="font-medium">Configuration Saved</span>
+                                </div>
+                                <div className="mt-2 space-y-1">
+                                  {Object.entries(configuredBakeryItems[product._id]).map(([itemId, quantity]) => {
+                                    const item = product.bakeryVariants.find(v => v._id === itemId);
+                                    if (item && quantity > 0) {
+                                      return (
+                                        <div key={itemId} className="text-sm text-gray-600 flex justify-between">
+                                          <span>{item.itemName}</span>
+                                          <span>Quantity: {quantity}</span>
+                                        </div>
+                                      );
+                                    }
+                                    return null;
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Price Display with Guest Calculation */}
+                            {selectedVariants[product._id] && (
+                              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                                <h3 className="text-lg font-semibold mb-2">Price Details</h3>
+                                <div className="space-y-2">
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-700">Price per item:</span>
+                                    <span className="font-semibold">₹{selectedVariants[product._id].price?.toLocaleString()}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-700">Number of guests:</span>
+                                    <span className="font-semibold">{eventDetails.guests} guests</span>
+                                  </div>
+                                  <div className="border-t pt-2 mt-2">
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-700 font-medium">Total cost:</span>
+                                      <span className="text-red-600 font-bold">
+                                        ₹{(selectedVariants[product._id].price * eventDetails.guests).toLocaleString()}
+                                      </span>
                                     </div>
                                   </div>
                                 </div>
-                              )}
-                              
-                              {/* Configuration Buttons */}
-                              <div className="flex flex-wrap gap-4 mt-2">
-                                <button
-                                  onClick={() => handleConfigureBakery(product)}
-                                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg 
-                                    hover:bg-blue-700 transition-colors"
-                                >
-                                  <FiSettings className="w-5 h-5" />
-                                  Configure Order
-                                </button>
-                                
-                                {currentBakeryConfiguration[product._id] && (
-                                  <button
-                                    onClick={() => handleConfigureBakery(product)}
-                                    className="flex items-center gap-2 px-4 py-2 border border-green-500 text-green-600 
-                                      rounded-lg hover:bg-green-50 transition-colors"
-                                  >
-                                    <FaCheckCircle className="w-5 h-5" />
-                                    Edit Configuration
-                                  </button>
-                                )}
                               </div>
-                              
-                              {/* Configuration Status */}
-                              {currentBakeryConfiguration[product._id] && (
-                                <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                                  <div className="flex items-center gap-2 text-green-600">
-                                    <FaCheckCircle className="w-5 h-5" />
-                                    <span className="font-medium">Configuration Saved</span>
-                                  </div>
-                                  <div className="mt-2 space-y-1">
-                                    {Object.entries(currentBakeryConfiguration[product._id]).map(([itemId, quantity]) => {
-                                      const item = product.bakeryVariants.find(v => v._id === itemId);
-                                      if (item && quantity > 0) {
-                                        return (
-                                          <div key={itemId} className="text-sm text-gray-600 flex justify-between">
-                                            <span>{item.itemName}</span>
-                                            <span>Quantity: {quantity}</span>
-                                          </div>
-                                        );
-                                      }
-                                      return null;
-                                    })}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
+                            )}
                           </div>
                         )}
 
-                        {/* Price Display */}
+                        {/* Price Display - Updated for bakery items */}
                         <div className="mb-4">
                           {category.toLowerCase() === 'rent' ? (
                             selectedVariants[product._id] ? (
@@ -1974,7 +2078,27 @@ const CustomizePackageModal = ({ isOpen, onClose, packageData, ratings, eventDet
                             ) : (
                               <p className="text-lg text-gray-600">Select a variant</p>
                             )
-                          ) : ['catering', 'bakers'].includes(category.toLowerCase()) ? (
+                          ) : category.toLowerCase() === 'bakers' ? (
+                            selectedVariants[product._id] ? (
+                              <div className="space-y-1">
+                                <p className="text-2xl font-bold text-red-600">
+                                  ₹{selectedVariants[product._id].price?.toLocaleString()} per item
+                                </p>
+                                <p className="text-lg text-gray-600">
+                                  Recommended quantity: {Math.ceil(eventDetails.guests / (selectedVariants[product._id].servingCapacity || 1))} items
+                                </p>
+                                <p className="text-lg text-gray-600">
+                                  Total cost:{' '}
+                                  <span className="font-bold text-red-600">
+                                    ₹{(Math.ceil(eventDetails.guests / (selectedVariants[product._id].servingCapacity || 1)) * 
+                                       selectedVariants[product._id].price).toLocaleString()}
+                                  </span>
+                                </p>
+                              </div>
+                            ) : (
+                              <p className="text-lg text-gray-600">Select a variant</p>
+                            )
+                          ) : category.toLowerCase() === 'catering' ? (
                             <div className="space-y-1">
                               <p className="text-2xl font-bold text-red-600">
                                 ₹{product.price?.toLocaleString()} per guest
@@ -2163,7 +2287,7 @@ const CustomizePackageModal = ({ isOpen, onClose, packageData, ratings, eventDet
           </div>
         )}
 
-        {/* Bakery Configuration Modal */}
+        {/* Bakery Configuration Modal - Similar to ProductDetails.js */}
         {isBakeryConfigModalOpen && currentBakeryProduct && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 w-[90%] max-w-2xl max-h-[80vh] overflow-y-auto">

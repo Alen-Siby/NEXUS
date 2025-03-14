@@ -764,12 +764,13 @@ const Cart = () => {
               </div>
               {product.configuration && (
                 <div className="space-y-3">
-                  {product.configuration.horsOeuvre?.length > 0 && (
+                  {/* Appetizers/Hors d'Oeuvre */}
+                  {product.configuration.horsOeuvre && product.configuration.horsOeuvre.length > 0 && (
                     <div>
                       <h4 className="text-sm font-medium text-gray-700">Appetizers:</h4>
                       <div className="flex flex-wrap gap-2 mt-1">
                         {product.configuration.horsOeuvre.map((item, idx) => (
-                          <span key={idx} className="bg-pink-100 text-pink-800 px-3 py-1 rounded-full text-sm">
+                          <span key={idx} className={`${courseColors['Appetizer']} px-3 py-1 rounded-full text-sm`}>
                             {item}
                           </span>
                         ))}
@@ -777,12 +778,13 @@ const Cart = () => {
                     </div>
                   )}
                   
-                  {product.configuration.mainCourse?.length > 0 && (
+                  {/* Main Course */}
+                  {product.configuration.mainCourse && product.configuration.mainCourse.length > 0 && (
                     <div>
                       <h4 className="text-sm font-medium text-gray-700">Main Course:</h4>
                       <div className="flex flex-wrap gap-2 mt-1">
                         {product.configuration.mainCourse.map((item, idx) => (
-                          <span key={idx} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
+                          <span key={idx} className={`${courseColors['Main Course']} px-3 py-1 rounded-full text-sm`}>
                             {item}
                           </span>
                         ))}
@@ -790,12 +792,69 @@ const Cart = () => {
                     </div>
                   )}
                   
-                  {product.configuration.dessert?.length > 0 && (
+                  {/* Dessert */}
+                  {product.configuration.dessert && product.configuration.dessert.length > 0 && (
                     <div>
                       <h4 className="text-sm font-medium text-gray-700">Desserts:</h4>
                       <div className="flex flex-wrap gap-2 mt-1">
                         {product.configuration.dessert.map((item, idx) => (
-                          <span key={idx} className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm">
+                          <span key={idx} className={`${courseColors['Dessert']} px-3 py-1 rounded-full text-sm`}>
+                            {item}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Soup */}
+                  {product.configuration.soup && product.configuration.soup.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700">Soups:</h4>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {product.configuration.soup.map((item, idx) => (
+                          <span key={idx} className={`${courseColors['Soup']} px-3 py-1 rounded-full text-sm`}>
+                            {item}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Salad */}
+                  {product.configuration.salad && product.configuration.salad.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700">Salads:</h4>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {product.configuration.salad.map((item, idx) => (
+                          <span key={idx} className={`${courseColors['Salad']} px-3 py-1 rounded-full text-sm`}>
+                            {item}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Beverage */}
+                  {product.configuration.beverage && product.configuration.beverage.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700">Beverages:</h4>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {product.configuration.beverage.map((item, idx) => (
+                          <span key={idx} className={`${courseColors['Beverage']} px-3 py-1 rounded-full text-sm`}>
+                            {item}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Starter */}
+                  {product.configuration.starter && product.configuration.starter.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700">Starters:</h4>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {product.configuration.starter.map((item, idx) => (
+                          <span key={idx} className={`${courseColors['Starter']} px-3 py-1 rounded-full text-sm`}>
                             {item}
                           </span>
                         ))}
