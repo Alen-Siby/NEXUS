@@ -10,6 +10,7 @@ import { FiShoppingCart, FiSettings } from 'react-icons/fi';
 import { FaStar, FaStarHalf } from 'react-icons/fa';
 import Context from '../context';
 import displayINRCurrency from '../helpers/displayCurrency';
+import { FaCheckCircle } from 'react-icons/fa';
 
 const RecommendedEvents = () => {
   const location = useLocation();
@@ -1361,6 +1362,12 @@ const CustomizePackageModal = ({ isOpen, onClose, packageData, ratings, eventDet
   const [productRatings, setProductRatings] = useState({});
   const [ratingStats, setRatingStats] = useState({});
 
+  // Add new state for bakery configuration
+  const [isBakeryConfigModalOpen, setIsBakeryConfigModalOpen] = useState(false);
+  const [bakeryConfig, setBakeryConfig] = useState({});
+  const [currentBakeryConfiguration, setCurrentBakeryConfiguration] = useState({});
+  const [currentBakeryProduct, setCurrentBakeryProduct] = useState(null);
+
   const handleMouseMove = (e) => {
     const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
     const x = ((e.pageX - left) / width) * 100;
@@ -1618,13 +1625,43 @@ const CustomizePackageModal = ({ isOpen, onClose, packageData, ratings, eventDet
                 })
               });
             } else if (category.toLowerCase() === 'bakers') {
-              response = await fetch(SummaryApi.addToCartProduct.url, {
-                method: SummaryApi.addToCartProduct.method,
-                headers: { 'Content-Type': 'application/json' },
+              // Check if configuration exists
+              const configuration = currentBakeryConfiguration[product._id];
+              
+              if (!configuration) {
+                toast.error(`Please configure bakery items for ${product.productName}`);
+                handleConfigureBakery(product);
+                return;
+              }
+              
+              // Check if any items are selected
+              const hasItems = Object.values(configuration).some(quantity => quantity > 0);
+              if (!hasItems) {
+                toast.error(`Please select at least one bakery item for ${product.productName}`);
+                handleConfigureBakery(product);
+                return;
+              }
+              
+              // Log configuration being sent
+              console.log('Sending bakery configuration:', {
+                productId: product._id,
+                selectedVariant: product.selectedVariant,
+                configuration
+              });
+              
+              response = await fetch(SummaryApi.addToCartWithBakeryConfig.url, {
+                method: SummaryApi.addToCartWithBakeryConfig.method,
                 credentials: 'include',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
                 body: JSON.stringify({
                   productId: product._id,
-                  quantity: eventDetails.guests
+                  selectedVariant: {
+                    ...product.selectedVariant,
+                    servingCapacity: product.selectedVariant.servingCapacity
+                  },
+                  configuration
                 })
               });
             } else {
@@ -1676,6 +1713,64 @@ const CustomizePackageModal = ({ isOpen, onClose, packageData, ratings, eventDet
 
     return `${displayINRCurrency(minPrice)} - ${displayINRCurrency(maxPrice)}`;
   };
+
+  // Handle bakery item quantity change
+  const handleBakeryQuantityChange = (itemId, quantity) => {
+    setBakeryConfig(prev => ({
+      ...prev,
+      [itemId]: Math.max(0, parseInt(quantity) || 0)
+    }));
+  };
+
+  // Save bakery configuration
+  const handleBakeryConfigurationSave = () => {
+    const hasItems = Object.values(bakeryConfig).some(quantity => quantity > 0);
+    
+    if (!hasItems) {
+      toast.error('Please select at least one bakery item');
+      return;
+    }
+    
+    // Save configuration to state
+    const updatedConfigs = {
+      ...currentBakeryConfiguration,
+      [currentBakeryProduct._id]: bakeryConfig
+    };
+    
+    setCurrentBakeryConfiguration(updatedConfigs);
+    localStorage.setItem('bakeryConfigurations', JSON.stringify(updatedConfigs));
+    
+    console.log('Bakery Configuration Saved:', bakeryConfig);
+    toast.success('Bakery configuration saved!');
+    setIsBakeryConfigModalOpen(false);
+  };
+
+  // Configure bakery items
+  const handleConfigureBakery = (product) => {
+    setCurrentBakeryProduct(product);
+    
+    // Initialize with existing configuration if available
+    if (currentBakeryConfiguration[product._id]) {
+      setBakeryConfig(currentBakeryConfiguration[product._id]);
+    } else {
+      // Reset configuration
+      setBakeryConfig({});
+    }
+    
+    setIsBakeryConfigModalOpen(true);
+  };
+
+  // Add useEffect to initialize bakery configurations from localStorage when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      // Load saved bakery configurations from localStorage
+      const savedBakeryConfigs = localStorage.getItem('bakeryConfigurations');
+      
+      if (savedBakeryConfigs) {
+        setCurrentBakeryConfiguration(JSON.parse(savedBakeryConfigs));
+      }
+    }
+  }, [isOpen]);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
@@ -1788,6 +1883,75 @@ const CustomizePackageModal = ({ isOpen, onClose, packageData, ratings, eventDet
                                   </div>
                                 </button>
                               ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Bakery Variants Section */}
+                        {category.toLowerCase() === 'bakers' && product.bakeryVariants && (
+                          <div className="mb-6">
+                            <h4 className="text-lg font-medium text-gray-900 mb-3">Available Items:</h4>
+                            <div className="grid grid-cols-1 gap-4">
+                              {product.selectedVariant && (
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                  <div className="flex items-start gap-3">
+                                    <div>
+                                      <h4 className="font-medium text-gray-900">{product.selectedVariant.itemName}</h4>
+                                      <p className="text-sm text-gray-600">Serves: {product.selectedVariant.servingCapacity}</p>
+                                      <p className="text-sm font-semibold text-green-600 mt-1">
+                                        ₹{product.selectedVariant.price?.toLocaleString()}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {/* Configuration Buttons */}
+                              <div className="flex flex-wrap gap-4 mt-2">
+                                <button
+                                  onClick={() => handleConfigureBakery(product)}
+                                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg 
+                                    hover:bg-blue-700 transition-colors"
+                                >
+                                  <FiSettings className="w-5 h-5" />
+                                  Configure Order
+                                </button>
+                                
+                                {currentBakeryConfiguration[product._id] && (
+                                  <button
+                                    onClick={() => handleConfigureBakery(product)}
+                                    className="flex items-center gap-2 px-4 py-2 border border-green-500 text-green-600 
+                                      rounded-lg hover:bg-green-50 transition-colors"
+                                  >
+                                    <FaCheckCircle className="w-5 h-5" />
+                                    Edit Configuration
+                                  </button>
+                                )}
+                              </div>
+                              
+                              {/* Configuration Status */}
+                              {currentBakeryConfiguration[product._id] && (
+                                <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                                  <div className="flex items-center gap-2 text-green-600">
+                                    <FaCheckCircle className="w-5 h-5" />
+                                    <span className="font-medium">Configuration Saved</span>
+                                  </div>
+                                  <div className="mt-2 space-y-1">
+                                    {Object.entries(currentBakeryConfiguration[product._id]).map(([itemId, quantity]) => {
+                                      const item = product.bakeryVariants.find(v => v._id === itemId);
+                                      if (item && quantity > 0) {
+                                        return (
+                                          <div key={itemId} className="text-sm text-gray-600 flex justify-between">
+                                            <span>{item.itemName}</span>
+                                            <span>Quantity: {quantity}</span>
+                                          </div>
+                                        );
+                                      }
+                                      return null;
+                                    })}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         )}
@@ -1994,6 +2158,72 @@ const CustomizePackageModal = ({ isOpen, onClose, packageData, ratings, eventDet
                     Confirm Selection
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Bakery Configuration Modal */}
+        {isBakeryConfigModalOpen && currentBakeryProduct && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-[90%] max-w-2xl max-h-[80vh] overflow-y-auto">
+              <div className="flex justify-between items-center border-b pb-4 mb-6">
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-800">Select Bakery Items</h3>
+                  <p className="text-gray-600">Configure your bakery order</p>
+                </div>
+                <button 
+                  onClick={() => setIsBakeryConfigModalOpen(false)}
+                  className="text-gray-500 hover:text-gray-700 text-xl"
+                >
+                  ×
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                {currentBakeryProduct?.bakeryVariants?.map((item) => (
+                  <div key={item._id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                    <div className="flex items-start gap-4">
+                      {item.images && item.images[0] && (
+                        <img 
+                          src={item.images[0]} 
+                          alt={item.itemName} 
+                          className="w-16 h-16 object-cover rounded-md"
+                        />
+                      )}
+                      <div>
+                        <h4 className="font-medium text-gray-800">{item.itemName}</h4>
+                        <p className="text-sm text-gray-600">Serves: {item.servingCapacity}</p>
+                        <p className="text-sm font-medium text-green-600 mt-1">₹{item.price?.toLocaleString()}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-sm text-gray-700">Quantity:</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={bakeryConfig[item._id] || 0}
+                        onChange={(e) => handleBakeryQuantityChange(item._id, e.target.value)}
+                        className="w-20 p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex justify-end gap-4 mt-6">
+                <button
+                  onClick={() => setIsBakeryConfigModalOpen(false)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBakeryConfigurationSave}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  Save Configuration
+                </button>
               </div>
             </div>
           </div>
