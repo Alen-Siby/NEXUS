@@ -11,6 +11,7 @@ import { FaStar, FaStarHalf } from 'react-icons/fa';
 import Context from '../context';
 import displayINRCurrency from '../helpers/displayCurrency';
 import { FaCheckCircle } from 'react-icons/fa';
+import { FaUsers } from 'react-icons/fa';
 
 const RecommendedEvents = () => {
   const location = useLocation();
@@ -1769,11 +1770,41 @@ const CustomizePackageModal = ({ isOpen, onClose, packageData, ratings, eventDet
     setIsBakeryConfigModalOpen(false);
   };
 
-  // Configure bakery items
+  // Configure bakery items - Updated to auto-distribute quantities
   const handleConfigureBakery = (product) => {
     setCurrentBakeryProduct(product);
-    // Initialize with existing configuration or empty
-    setBakeryConfig(configuredBakeryItems[product._id] || {});
+    
+    // Check if we already have a configuration
+    if (configuredBakeryItems[product._id]) {
+      // Use existing configuration
+      setBakeryConfig(configuredBakeryItems[product._id]);
+    } else {
+      // Create a new configuration with auto-distributed quantities
+      const totalGuests = eventDetails.guests;
+      const variants = product.bakeryVariants || [];
+      
+      // Skip empty variants
+      if (variants.length === 0) {
+        setBakeryConfig({});
+        setIsBakeryConfigModalOpen(true);
+        return;
+      }
+      
+      // Calculate equal distribution
+      const baseQuantityPerVariant = Math.floor(totalGuests / variants.length);
+      const remainder = totalGuests % variants.length;
+      
+      // Create initial config with equal distribution
+      const initialConfig = {};
+      variants.forEach((variant, index) => {
+        // Add one extra to early variants if there's a remainder
+        const extraQuantity = index < remainder ? 1 : 0;
+        initialConfig[variant._id] = baseQuantityPerVariant + extraQuantity;
+      });
+      
+      setBakeryConfig(initialConfig);
+    }
+    
     setIsBakeryConfigModalOpen(true);
   };
 
@@ -2290,14 +2321,16 @@ const CustomizePackageModal = ({ isOpen, onClose, packageData, ratings, eventDet
           </div>
         )}
 
-        {/* Bakery Configuration Modal - Similar to ProductDetails.js */}
+        {/* Bakery Configuration Modal - Updated with auto-distribution */}
         {isBakeryConfigModalOpen && currentBakeryProduct && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 w-[90%] max-w-2xl max-h-[80vh] overflow-y-auto">
               <div className="flex justify-between items-center border-b pb-4 mb-6">
                 <div>
                   <h3 className="text-xl font-semibold text-gray-800">Select Bakery Items</h3>
-                  <p className="text-gray-600">Configure your bakery order</p>
+                  <p className="text-gray-600">
+                    Quantities are auto-distributed for {eventDetails.guests} guests
+                  </p>
                 </div>
                 <button 
                   onClick={() => setIsBakeryConfigModalOpen(false)}
@@ -2305,6 +2338,19 @@ const CustomizePackageModal = ({ isOpen, onClose, packageData, ratings, eventDet
                 >
                   ×
                 </button>
+              </div>
+              
+              {/* Total guests indicator */}
+              <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <FaUsers className="text-blue-600 mr-2" />
+                    <span className="text-blue-800 font-medium">Total Guests: {eventDetails.guests}</span>
+                  </div>
+                  <div className="text-blue-600 font-medium">
+                    Distributed Guests: {Object.values(bakeryConfig).reduce((sum, qty) => sum + qty, 0)}
+                  </div>
+                </div>
               </div>
               
               <div className="space-y-4">

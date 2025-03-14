@@ -43,6 +43,9 @@ const ProductDetails = () => {
     5: 0, 4: 0, 3: 0, 2: 0, 1: 0
   });
   const [allUsers, setAllUsers] = useState([]);
+  
+  // Add guestCount state
+  const [guestCount, setGuestCount] = useState(50); // Default to 50 guests
 
   // Add new state for bakery configuration
   const [bakeryConfig, setBakeryConfig] = useState({});
@@ -184,6 +187,11 @@ const ProductDetails = () => {
     if (data?.category?.toLowerCase() === "bakers" && data?.bakeryVariants?.length > 0) {
       setSelectedBakeryVariant(data.bakeryVariants[0]);
       setActiveImages(data.bakeryVariants[0].images || []);
+      
+      // Initialize bakery config with default distribution
+      if (data.bakeryVariants.length > 0) {
+        distributeGuestCount(guestCount, data.bakeryVariants);
+      }
     }
   }, [data]);
 
@@ -374,11 +382,73 @@ const ProductDetails = () => {
     }));
   };
 
-  // Modified handleAddToCart function
+  // Function to distribute guest count evenly among variants
+  const distributeGuestCount = (guests, variants) => {
+    if (!variants || variants.length === 0) return;
+    
+    const variantCount = variants.length;
+    const baseQuantity = Math.floor(guests / variantCount);
+    const remainder = guests % variantCount;
+    
+    const newConfig = {};
+    
+    variants.forEach((variant, index) => {
+      // Add extra from remainder to first few variants if needed
+      const quantity = index < remainder ? baseQuantity + 1 : baseQuantity;
+      newConfig[variant._id] = quantity;
+    });
+    
+    setBakeryConfig(newConfig);
+  };
+
+  // Add distribute button handler
+  const handleDistributeGuests = () => {
+    if (data?.bakeryVariants?.length > 0) {
+      distributeGuestCount(guestCount, data.bakeryVariants);
+      toast.success(`Distributed ${guestCount} guests among ${data.bakeryVariants.length} variants`);
+    }
+  };
+
+  // Modified handleAddToCart function to use default config if none exists
   const handleAddToCart = async (e) => {
     e.preventDefault();
     try {
       if (data.category.toLowerCase() === 'bakers') {
+        // If no configuration exists, create a default one with 1 quantity per variant
+        if (!currentBakeryConfiguration) {
+          const defaultConfig = {};
+          data.bakeryVariants.forEach(variant => {
+            defaultConfig[variant._id] = 1;
+          });
+          setCurrentBakeryConfiguration(defaultConfig);
+          
+          // Use the default configuration
+          const response = await fetch(SummaryApi.addToCartWithBakeryConfig.url, {
+            method: SummaryApi.addToCartWithBakeryConfig.method,
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              productId: params.id,
+              selectedVariant: {
+                ...selectedBakeryVariant,
+                servingCapacity: selectedBakeryVariant.servingCapacity
+              },
+              configuration: defaultConfig
+            })
+          });
+
+          const responseData = await response.json();
+          if (responseData.success) {
+            toast.success('Bakery items added to cart successfully');
+            fetchUserAddToCart();
+          } else {
+            toast.error(responseData.message || 'Failed to add bakery items to cart');
+          }
+          return;
+        }
+
         // Handle adding bakery items with configuration
         if (!currentBakeryConfiguration) {
           toast.error('Please configure your bakery items before adding to cart');
@@ -413,15 +483,6 @@ const ProductDetails = () => {
         } else {
           toast.error(responseData.message || 'Failed to add bakery items to cart');
         }
-      } else if (data.category.toLowerCase() === 'catering') {
-        // Handle catering products with configuration
-        if (!currentConfiguration) {
-          toast.error('Please configure your catering preferences before adding to cart');
-          return;
-        }
-        
-        // Use the dedicated function for catering configuration
-        await addToCartWithConfig(params.id, quantity, currentConfiguration);
       } else if (data.category.toLowerCase() === 'rent') {
         if (!selectedRentalVariant) {
           toast.error('Please select a rental variant');
@@ -1346,6 +1407,46 @@ const ProductDetails = () => {
                 >
                   ×
                 </button>
+              </div>
+              
+              {/* Guest Count Selector */}
+              <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <h4 className="font-medium text-gray-800">Number of Guests</h4>
+                    <p className="text-sm text-gray-600">Adjust quantity based on your guest count</p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center border border-gray-300 rounded-md bg-white">
+                      <button
+                        onClick={() => setGuestCount(Math.max(10, guestCount - 10))}
+                        className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-l-md"
+                      >
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        min="10"
+                        max="500"
+                        value={guestCount}
+                        onChange={(e) => setGuestCount(Math.max(10, parseInt(e.target.value) || 10))}
+                        className="w-20 p-1 text-center border-x border-gray-300"
+                      />
+                      <button
+                        onClick={() => setGuestCount(Math.min(500, guestCount + 10))}
+                        className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-r-md"
+                      >
+                        +
+                      </button>
+                    </div>
+                    <button
+                      onClick={handleDistributeGuests}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                    >
+                      Distribute
+                    </button>
+                  </div>
+                </div>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
