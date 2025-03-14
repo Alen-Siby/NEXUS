@@ -1,260 +1,292 @@
-const backendDomin = "https://nexus-backend-lpfd.onrender.com"
-// const backendDomin = "http://localhost:8080"
+// Define both domains and use a fallback mechanism
+const productionDomain = "https://nexus-backend-lpfd.onrender.com";
+const localDomain = "http://localhost:8080";
 
+// Function to check if a domain is reachable
+const checkDomainAvailability = async (domain) => {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000); // 3 second timeout
+    
+    const response = await fetch(`${domain}/api/health-check`, { 
+      method: 'HEAD',
+      signal: controller.signal 
+    });
+    
+    clearTimeout(timeoutId);
+    return response.ok;
+  } catch (error) {
+    return false;
+  }
+};
 
+// Initialize with production domain, will be updated after availability check
+let backendDomain = localDomain;
 
+// Immediately invoked function to set the correct domain
+(async () => {
+  // Try production domain first
+  if (await checkDomainAvailability(productionDomain)) {
+    backendDomain = productionDomain;
+    console.log("Using production backend");
+  } else {
+    // Fallback to local domain
+    backendDomain = productionDomain;
+    console.log("Using local backend");
+  }
+})();
 
 const SummaryApi = {
     signUP : {
-        url : `${backendDomin}/api/signup`,
+        url : `${backendDomain}/api/signup`,
         method : "post"
     },
     signIn : {
-        url : `${backendDomin}/api/signin`,
+        url : `${backendDomain}/api/signin`,
         method : "post"
     },
     current_user : {
-        url : `${backendDomin}/api/user-details`,
+        url : `${backendDomain}/api/user-details`,
         method : "get"
     },
     logout_user : {
-        url : `${backendDomin}/api/userLogout`,
+        url : `${backendDomain}/api/userLogout`,
         method : 'get'
     },
     updateRole: {  // Add this part
-        url: `${backendDomin}/api/update-role`,
+        url: `${backendDomain}/api/update-role`,
         method: "post"
     },
     allUser : {
-        url : `${backendDomin}/api/all-user`,
+        url : `${backendDomain}/api/all-user`,
         method : 'get'
     },
     update_user : {
-        url : `${backendDomin}/api/UpdateProfile`,
+        url : `${backendDomain}/api/UpdateProfile`,
         method : 'put'
     },
     updateUser : {
-        url : `${backendDomin}/api/update-user`,
+        url : `${backendDomain}/api/update-user`,
         method : "post"
     },
     uploadProduct : {
-        url : `${backendDomin}/api/upload-product`,
+        url : `${backendDomain}/api/upload-product`,
         method : 'post'
     },
     allProduct : {
-        url : `${backendDomin}/api/get-product`,
+        url : `${backendDomain}/api/get-product`,
         method : 'get'
     },
 
     updateProduct : {
-        url : `${backendDomin}/api/update-product`,
+        url : `${backendDomain}/api/update-product`,
         method  : 'post'
     },
     disableProduct : {
-        url : `${backendDomin}/api/products`,
+        url : `${backendDomain}/api/products`,
         method  : 'patch'
     },
     enableProduct : {
-        url : `${backendDomin}/api/enable`,
+        url : `${backendDomain}/api/enable`,
         method  : 'patch'
     },
     categoryProduct : {
-        url : `${backendDomin}/api/get-categoryProduct`,
+        url : `${backendDomain}/api/get-categoryProduct`,
         method : 'get'
     },
     categoryWiseProduct : {
-        url : `${backendDomin}/api/category-product`,
+        url : `${backendDomain}/api/category-product`,
         method : 'post'
     },
     productDetails : {
-        url : `${backendDomin}/api/product-details`,
+        url : `${backendDomain}/api/product-details`,
         method : 'post'
     },
     addToCartProduct : {
-        url : `${backendDomin}/api/addtocart`,
+        url : `${backendDomain}/api/addtocart`,
         method : 'post'
     },
     
     addToCartWithConfig : {
-        url : `${backendDomin}/api/addtocartwithconfig`,
+        url : `${backendDomain}/api/addtocartwithconfig`,
         method : 'post'
     },
     addToCartWithVariant : {
-        url : `${backendDomin}/api/addtocartwithvariant`,
+        url : `${backendDomain}/api/addtocartwithvariant`,
         method : 'post'
     },
     
     addToCartProductCount : {
-        url : `${backendDomin}/api/countAddToCartProduct`,
+        url : `${backendDomain}/api/countAddToCartProduct`,
         method : 'get'
     },
     addToCartProductView : {
-        url : `${backendDomin}/api/view-card-product`,
+        url : `${backendDomain}/api/view-card-product`,
         method : 'get'
     },
     updateCartProduct : {
-        url : `${backendDomin}/api/update-cart-product`,
+        url : `${backendDomain}/api/update-cart-product`,
         method : 'post'
     },
     deleteCartProduct : {
-        url : `${backendDomin}/api/delete-cart-product`,
+        url : `${backendDomain}/api/delete-cart-product`,
         method : 'post'
     },
     Banner_req : {
-        url : `${backendDomin}/api/banner-request`,
+        url : `${backendDomain}/api/banner-request`,
         method : 'post'
     },
     Banner_view : {
-        url : `${backendDomin}/api/banner-view`,
+        url : `${backendDomain}/api/banner-view`,
         method : 'get'
     },
     Banner_tog : {
-        url : `${backendDomin}/api/togle-banner`,
+        url : `${backendDomain}/api/togle-banner`,
         method : 'put'
     },
     Banner_status : {
-        url : `${backendDomin}/api/updateBannerStatus`,
+        url : `${backendDomain}/api/updateBannerStatus`,
         method : 'put'
     },
    
     getmessages : {
-        url : `${backendDomin}/api/contact-messages`,
+        url : `${backendDomain}/api/contact-messages`,
         method : 'get'
     },
     categoryPro: {
-        url: `${backendDomin}/api/categories`,
+        url: `${backendDomain}/api/categories`,
         method: 'get',
       },
     categoryAdd: {
-        url: `${backendDomin}/api/category-add`,
+        url: `${backendDomain}/api/category-add`,
         method: 'post',
       },
     toglecat: {
-        url: `${backendDomin}/api/togle-cat`,
+        url: `${backendDomain}/api/togle-cat`,
         method: 'put',
       },
     searchProduct : {
-        url : `${backendDomin}/api/search`,
+        url : `${backendDomain}/api/search`,
         method : 'get'
     },
     filterProduct : {
-        url : `${backendDomin}/api/filter-product`,
+        url : `${backendDomain}/api/filter-product`,
         method : 'post'
     },
     event_add : {
-        url : `${backendDomin}/api/create`,
+        url : `${backendDomain}/api/create`,
         method : 'post'
     },
     user_events : {
-        url : `${backendDomin}/api/events`,
+        url : `${backendDomain}/api/events`,
         method : 'get'
     },
     events_del : {
-        url : `${backendDomin}/api/events-del`,
+        url : `${backendDomain}/api/events-del`,
         method : 'patch'
     },
    sponser : {
-        url : `${backendDomin}/api/sponser`,
+        url : `${backendDomain}/api/sponser`,
         method : 'patch'
     },
     checkout : {
-        url : `${backendDomin}/api/checkout`,
+        url : `${backendDomain}/api/checkout`,
         method : 'post'
     },
     orderDetails : {
-        url : `${backendDomin}/api/order-view`,
+        url : `${backendDomain}/api/order-view`,
         method : 'get'
     },
     cancelOrder : {
-        url : `${backendDomin}/api/cancel-order`,
+        url : `${backendDomain}/api/cancel-order`,
         method : 'post'
     },
     updateOrderWithPayment : {
-        url : `${backendDomin}/api/updateOrderWithPayment`,
+        url : `${backendDomain}/api/updateOrderWithPayment`,
         method : 'post'
     },
     clear_cart : {
-        url : `${backendDomin}/api/clear-cart`,
+        url : `${backendDomain}/api/clear-cart`,
         method : 'delete'
     },
     submitRating : {
-        url : `${backendDomin}/api/ratings`,
+        url : `${backendDomain}/api/ratings`,
         method : 'post'
     },
     getRating : {
-        url : `${backendDomin}/api/show-rating`,
+        url : `${backendDomain}/api/show-rating`,
         method : 'get'
     },
     forgot_password : {
-        url : `${backendDomin}/api/forgot-password`,
+        url : `${backendDomain}/api/forgot-password`,
         method : 'post'
     },
     verify_otp : {
-        url : `${backendDomin}/api/verify-otp`,
+        url : `${backendDomain}/api/verify-otp`,
         method : 'post'
     },
     resend_otp : {
-        url : `${backendDomin}/api/resend-otp`,
+        url : `${backendDomain}/api/resend-otp`,
         method : 'post'
     },
     google_login : {
-        url : `${backendDomin}/auth/google`,
+        url : `${backendDomain}/auth/google`,
         method : 'get'
     },
     facebook_login : {
-        url : `${backendDomin}/auth/facebook`,
+        url : `${backendDomain}/auth/facebook`,
         method : 'get'
     },
     deleteUser : {
-        url : `${backendDomin}/api/delete-user`,
+        url : `${backendDomain}/api/delete-user`,
         method : 'delete'
     },
     generatePoster: {
-        url: `${backendDomin}/api/generate-poster`,
+        url: `${backendDomain}/api/generate-poster`,
         method: 'post'
     },
     
     portfolio: {
-        url: `${backendDomin}/api/portfolio`,
+        url: `${backendDomain}/api/portfolio`,
         method: 'post'
     },
     
     get_portfolio: {
-        url: `${backendDomin}/api/getportfolio`,
+        url: `${backendDomain}/api/getportfolio`,
         method: 'get'
     },
     add_testimonial: {
-        url: `${backendDomin}/api/testimonial`,
+        url: `${backendDomain}/api/testimonial`,
         method: 'post'
     },
     get_testimonial: {
-        url: `${backendDomin}/api/gettestimonial`,
+        url: `${backendDomain}/api/gettestimonial`,
         method: 'post'
     },
     chat_message: {
-        url: `${backendDomin}/api/message`,
+        url: `${backendDomain}/api/message`,
         method: 'post'
     },
     updateOrderStatus: {
-        url: `${backendDomin}/api/update-order-status`,
+        url: `${backendDomain}/api/update-order-status`,
         method: 'put'
     },
     suggestPackages: {
-        url: `${backendDomin}/api/suggest-packages`,
+        url: `${backendDomain}/api/suggest-packages`,
         method: 'post'
     },
 
     // Guest Management endpoints
     createGuestList: {
-        url: `${backendDomin}/api/create-guest-list`,
+        url: `${backendDomain}/api/create-guest-list`,
         method: "post"
     },
     allGuestLists: {
-        url: `${backendDomin}/api/all-guest-lists`,
+        url: `${backendDomain}/api/all-guest-lists`,
         method: "get"
     },
     addToCartWithBakeryConfig: {
-        url: `${backendDomin}/api/addtocartwithbakeryconfig`,
+        url: `${backendDomain}/api/addtocartwithbakeryconfig`,
         method: 'post'
     },
 }
