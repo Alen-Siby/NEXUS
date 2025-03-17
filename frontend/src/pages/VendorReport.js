@@ -1005,7 +1005,7 @@ const VendorReport = () => {
                               .map(product => (
                                 <Box key={product._id} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                                   <img 
-                                    src={product.image} 
+                                    src={product.image || (product.additionalDetails?.bakery?.configuration?.[0]?.image) || '/placeholder-image.jpg'} 
                                     alt={product.productName}
                                     style={{
                                       width: '50px',
@@ -1014,9 +1014,104 @@ const VendorReport = () => {
                                       borderRadius: '4px'
                                     }}
                                   />
-                                  <Typography>
-                                    {product.productName} (Qty: {product.quantity})
-                                  </Typography>
+                                  <Box>
+                                    <Typography fontWeight="medium">
+                                      {product.productName} (Qty: {product.quantity})
+                                    </Typography>
+                                    
+                                    {/* Display category */}
+                                    <Typography variant="caption" color="text.secondary">
+                                      Category: {product.category}
+                                    </Typography>
+                                    
+                                    {/* Display additional details based on category */}
+                                    {product.category === 'Catering' && product.additionalDetails?.catering && (
+                                      <Box sx={{ mt: 1, pl: 1, borderLeft: '2px solid #1976d2' }}>
+                                        <Typography variant="caption" color="text.secondary">
+                                          {product.additionalDetails.catering.courses?.length || 0} course(s)
+                                        </Typography>
+                                        {expandedCells[`${order._id}-${product._id}-details`] && (
+                                          <Box sx={{ mt: 0.5 }}>
+                                            {product.additionalDetails.catering.courses?.map((course, idx) => (
+                                              <Box key={idx} sx={{ mb: 0.5 }}>
+                                                <Typography variant="caption" fontWeight="medium">
+                                                  {course.courseName} ({course.courseType})
+                                                </Typography>
+                                                <Typography variant="caption" display="block">
+                                                  Items: {course.menuItems?.join(', ')}
+                                                </Typography>
+                                                {course.dietaryRestrictions?.length > 0 && (
+                                                  <Typography variant="caption" display="block">
+                                                    Dietary: {course.dietaryRestrictions.join(', ')}
+                                                  </Typography>
+                                                )}
+                                              </Box>
+                                            ))}
+                                          </Box>
+                                        )}
+                                      </Box>
+                                    )}
+                                    
+                                    {product.category === 'Rental' && product.additionalDetails?.rental && (
+                                      <Box sx={{ mt: 1, pl: 1, borderLeft: '2px solid #ed6c02' }}>
+                                        <Typography variant="caption" color="text.secondary">
+                                          {product.additionalDetails.rental.variantName}
+                                        </Typography>
+                                        <Typography variant="caption" display="block">
+                                          Rental Period: {new Date(product.additionalDetails.rental.startDate).toLocaleDateString()} - 
+                                          {new Date(product.additionalDetails.rental.endDate).toLocaleDateString()}
+                                        </Typography>
+                                        {expandedCells[`${order._id}-${product._id}-details`] && (
+                                          <Box sx={{ mt: 0.5 }}>
+                                            <Typography variant="caption" display="block">
+                                              Variant Price: ${product.additionalDetails.rental.variantPrice?.toFixed(2) || '0.00'}
+                                            </Typography>
+                                            <Typography variant="caption" display="block">
+                                              Total Rental Price: ${product.additionalDetails.rental.totalPrice?.toFixed(2) || '0.00'}
+                                            </Typography>
+                                            {product.additionalDetails.rental.fine > 0 && (
+                                              <Typography variant="caption" display="block" sx={{ color: 'error.main' }}>
+                                                Fine: ${product.additionalDetails.rental.fine.toFixed(2)} 
+                                                {product.additionalDetails.rental.finePerDay && ` (${product.additionalDetails.rental.finePerDay.toFixed(2)}/day)`}
+                                              </Typography>
+                                            )}
+                                          </Box>
+                                        )}
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                                          {product.additionalDetails.rental.isReturned ? (
+                                            <Chip size="small" label="Returned" color="success" />
+                                          ) : (
+                                            <Chip size="small" label="Not Returned" color="warning" />
+                                          )}
+                                          <Button 
+                                            size="small" 
+                                            variant="text" 
+                                            onClick={() => handleCellClick(order._id, `${product._id}-details`)}
+                                            sx={{ p: 0, minWidth: 'auto' }}
+                                          >
+                                            {expandedCells[`${order._id}-${product._id}-details`] ? 'Hide Details' : 'Show Details'}
+                                          </Button>
+                                        </Box>
+                                      </Box>
+                                    )}
+                                    
+                                    {product.category === 'Bakery' && product.additionalDetails?.bakery && (
+                                      <Box sx={{ mt: 1, pl: 1, borderLeft: '2px solid #9c27b0' }}>
+                                        <Typography variant="caption" color="text.secondary">
+                                          {product.additionalDetails.bakery.configuration?.length || 0} configuration(s)
+                                        </Typography>
+                                        {expandedCells[`${order._id}-${product._id}-details`] && (
+                                          <Box sx={{ mt: 0.5 }}>
+                                            {product.additionalDetails.bakery.configuration?.map((item, idx) => (
+                                              <Typography key={idx} variant="caption" display="block">
+                                                {item.itemName} (${item.price}) x {item.quantity}
+                                              </Typography>
+                                            ))}
+                                          </Box>
+                                        )}
+                                      </Box>
+                                    )}
+                                  </Box>
                                 </Box>
                               ))}
                           </Box>
