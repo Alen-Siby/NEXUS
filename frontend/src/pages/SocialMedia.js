@@ -10,6 +10,7 @@ const SocialMedia = () => {
     primaryColor: '#000000',
     secondaryColor: '#ffffff',
     eventType: '',
+    eventDate: '',
     brideName: '',
     groomName: '',
     individualName: '',
@@ -68,6 +69,11 @@ const SocialMedia = () => {
     
     // Add theme and colors
     prompt += ` with the theme "${data.theme}". Use ${data.primaryColor} as the primary color and ${data.secondaryColor} as the secondary color.`;
+    
+    // Add event date
+    if (data.eventDate) {
+      prompt += ` The event will take place on ${data.eventDate}.`;
+    }
     
     // Add event-specific details
     if (data.eventType === 'marriage' || data.eventType === 'wedding') {
@@ -258,11 +264,98 @@ const SocialMedia = () => {
               required
             >
               <option value="">Select Event Type</option>
+              {/* Wedding & Relationship Events */}
               <option value="marriage">Marriage</option>
               <option value="wedding">Wedding</option>
+              <option value="engagement">Engagement</option>
+              <option value="anniversary">Anniversary</option>
+              <option value="bridal">Bridal Shower</option>
+              <option value="bachelor">Bachelor Party</option>
+              <option value="bachelorette">Bachelorette Party</option>
+              
+              {/* Family Events */}
               <option value="baptism">Baptism</option>
               <option value="babyShower">Baby Shower</option>
+              <option value="genderReveal">Gender Reveal</option>
+              <option value="birthday">Birthday</option>
+              <option value="familyReunion">Family Reunion</option>
+              <option value="memorial">Memorial Service</option>
+              <option value="funeral">Funeral</option>
+              
+              {/* Academic Events */}
+              <option value="graduation">Graduation</option>
+              <option value="backToSchool">Back to School</option>
+              <option value="schoolDance">School Dance</option>
+              <option value="prom">Prom</option>
+              <option value="homecoming">Homecoming</option>
+              
+              {/* Professional Events */}
+              <option value="conference">Conference</option>
+              <option value="seminar">Seminar</option>
+              <option value="workshop">Workshop</option>
+              <option value="networking">Networking Event</option>
+              <option value="productLaunch">Product Launch</option>
+              <option value="tradeShow">Trade Show</option>
+              <option value="jobFair">Job Fair</option>
+              
+              {/* Entertainment Events */}
+              <option value="concert">Concert</option>
+              <option value="festival">Festival</option>
+              <option value="movieScreening">Movie Screening</option>
+              <option value="artExhibition">Art Exhibition</option>
+              <option value="theaterPlay">Theater Play</option>
+              <option value="comedyShow">Comedy Show</option>
+              <option value="danceRecital">Dance Recital</option>
+              
+              {/* Community Events */}
+              <option value="fundraiser">Fundraiser</option>
+              <option value="charity">Charity Event</option>
+              <option value="bloodDrive">Blood Drive</option>
+              <option value="foodDrive">Food Drive</option>
+              <option value="communityMeeting">Community Meeting</option>
+              <option value="townHall">Town Hall</option>
+              <option value="protest">Protest/Rally</option>
+              
+              {/* Sports & Recreation */}
+              <option value="sportsTournament">Sports Tournament</option>
+              <option value="marathon">Marathon/Race</option>
+              <option value="gameNight">Game Night</option>
+              <option value="campingTrip">Camping Trip</option>
+              <option value="retreat">Retreat</option>
+              
+              {/* Seasonal & Holiday Events */}
+              <option value="halloween">Halloween Party</option>
+              <option value="christmas">Christmas Celebration</option>
+              <option value="newYear">New Year's Party</option>
+              <option value="thanksgiving">Thanksgiving Gathering</option>
+              <option value="easter">Easter Event</option>
+              <option value="holidayParty">Holiday Party</option>
+              
+              {/* Other Events */}
+              <option value="grandOpening">Grand Opening</option>
+              <option value="housewarming">Housewarming</option>
+              <option value="retirement">Retirement Party</option>
+              <option value="reunion">Class Reunion</option>
+              <option value="farewell">Farewell Party</option>
+              <option value="virtualEvent">Virtual Event</option>
+              <option value="other">Other Event</option>
             </select>
+
+            {/* Date field for all event types */}
+            <div className="space-y-2">
+              <label htmlFor="eventDate" className="block text-sm font-medium text-gray-700">
+                Event Date
+              </label>
+              <input
+                type="date"
+                id="eventDate"
+                name="eventDate"
+                value={formData.eventDate}
+                onChange={handleChange}
+                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                required
+              />
+            </div>
 
             {(formData.eventType === 'marriage' || formData.eventType === 'wedding') && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

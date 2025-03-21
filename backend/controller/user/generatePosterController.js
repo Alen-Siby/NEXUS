@@ -24,13 +24,32 @@ const generatePoster = async (req, res) => {
     // Add event-specific details
     if (completeFormData.eventType === 'marriage' || completeFormData.eventType === 'wedding') {
       basePrompt += ` Design an elegant wedding celebration poster for ${completeFormData.brideName} and ${completeFormData.groomName}.`;
+      if (completeFormData.eventDate) {
+        basePrompt += ` The wedding will take place on ${completeFormData.eventDate}.`;
+      }
       if (photo) {
         basePrompt += ` Incorporate their photo in a central, prominent position with decorative elements around it.`;
       }
     } else if (completeFormData.eventType === 'baptism' || completeFormData.eventType === 'babyShower') {
       basePrompt += ` Create a heartwarming celebration poster for ${completeFormData.individualName}.`;
+      if (completeFormData.eventDate) {
+        basePrompt += ` The event will take place on ${completeFormData.eventDate}.`;
+      }
       if (photo) {
         basePrompt += ` Feature their photo as the centerpiece of the design with gentle decorative elements.`;
+      }
+    } else {
+      // For other event types (birthday, anniversary, graduation, etc.)
+      if (completeFormData.individualName) {
+        basePrompt += ` Create an engaging poster for ${completeFormData.individualName}'s ${completeFormData.eventType}.`;
+      } else {
+        basePrompt += ` Create an engaging ${completeFormData.eventType} poster.`;
+      }
+      if (completeFormData.eventDate) {
+        basePrompt += ` The event will take place on ${completeFormData.eventDate}.`;
+      }
+      if (photo) {
+        basePrompt += ` Incorporate the provided photo prominently in the design.`;
       }
     }
 
