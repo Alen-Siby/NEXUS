@@ -1,5 +1,5 @@
-// const backendDomin = "https://nexus-backend-lpfd.onrender.com"
-const backendDomin = "http://localhost:8080"
+const backendDomin = "https://nexus-backend-lpfd.onrender.com"
+// const backendDomin = "http://localhost:8080"
 
 
 
